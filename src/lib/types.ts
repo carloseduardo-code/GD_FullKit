@@ -1,0 +1,72 @@
+export type TipoPergunta = "boolean" | "texto" | "numero" | "foto";
+
+export type TipoElemento =
+  | "Bloco"
+  | "Sapata"
+  | "Pedestal"
+  | "Piso"
+  | "Outro";
+
+export interface Obra {
+  id: string;
+  nome: string;
+  endereco: string;
+}
+
+export interface Elemento {
+  id: string;
+  obraId: string;
+  nome: string;
+  tipo: TipoElemento;
+}
+
+export interface Etapa {
+  id: string;
+  obraId: string;
+  nome: string;
+  ordem: number;
+}
+
+export interface ServicoNotavel {
+  id: string;
+  etapaId: string;
+  nome: string;
+  ordem: number;
+}
+
+export interface Pergunta {
+  id: string;
+  servicoId: string;
+  texto: string;
+  tipo: TipoPergunta;
+  obrigatoria: boolean;
+  ordem: number;
+}
+
+export interface Resposta {
+  perguntaId: string;
+  valor: boolean | string | number | null;
+}
+
+export interface Apontamento {
+  id: string;
+  elementoId: string;
+  servicoId: string;
+  respostas: Resposta[];
+  fotos: string[];
+  observacoes: string;
+  autor: string;
+  criadoEm: string;
+}
+
+export type StatusServico = "pronto" | "bloqueado" | "nao_iniciado";
+
+export interface Pendencia {
+  perguntaId: string;
+  texto: string;
+}
+
+export interface StatusResultado {
+  status: StatusServico;
+  pendencias: Pendencia[];
+}
