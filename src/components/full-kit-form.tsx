@@ -1,11 +1,13 @@
 "use client";
 
-import { Camera, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Camera, ImageIcon, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import type { Pergunta, TipoPergunta } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import type { Pergunta, RespostaBooleana, TipoPergunta } from "@/lib/types";
 
 const TIPO_LABEL: Record<TipoPergunta, string> = {
   boolean: "Sim/Não",
@@ -16,9 +18,9 @@ const TIPO_LABEL: Record<TipoPergunta, string> = {
 
 interface FullKitFormProps {
   perguntas: Pergunta[];
-  mode: "preview" | "responder";
-  respostas?: Record<string, boolean | string | number | null>;
-  onChangeResposta?: (perguntaId: string, valor: boolean | string | number | null) => void;
+  mode: "preview" | "responder" | "consulta";
+  respostas?: Record<string, RespostaBooleana | string | number | null>;
+  onChangeResposta?: (perguntaId: string, valor: RespostaBooleana | string | number | null) => void;
   fotos?: string[];
   onFotosChange?: (fotos: string[]) => void;
 }
@@ -32,6 +34,14 @@ export function FullKitForm({
   onFotosChange,
 }: FullKitFormProps) {
   const ordenadas = [...perguntas].sort((a, b) => a.ordem - b.ordem);
+  const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    return () => {
+      Object.values(previewUrls).forEach((url) => URL.revokeObjectURL(url));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (ordenadas.length === 0) {
     return (
@@ -66,14 +76,73 @@ export function FullKitForm({
     );
   }
 
+  if (mode === "consulta") {
+    return (
+      <div className="space-y-2">
+        {ordenadas.map((p) => {
+          const valor = respostas[p.id];
+          return (
+            <div key={p.id} className="flex items-start justify-between gap-3 rounded-md border p-3">
+              <span className="text-sm">{p.texto}</span>
+              <div className="shrink-0">
+                {p.tipo === "boolean" && (
+                  <Badge
+                    variant={
+                      valor === "sim"
+                        ? "default"
+                        : valor === "nao"
+                          ? "destructive"
+                          : valor === "nao_aplica"
+                            ? "outline"
+                            : "secondary"
+                    }
+                  >
+                    {valor === "sim"
+                      ? "Sim"
+                      : valor === "nao"
+                        ? "Não"
+                        : valor === "nao_aplica"
+                          ? "Não se aplica"
+                          : "Não respondida"}
+                  </Badge>
+                )}
+                {(p.tipo === "texto" || p.tipo === "numero") && (
+                  <span className="text-sm text-muted-foreground">
+                    {valor !== null && valor !== undefined && valor !== "" ? String(valor) : "—"}
+                  </span>
+                )}
+                {p.tipo === "foto" && (
+                  <span className="text-sm text-muted-foreground">
+                    {fotos.length} foto{fotos.length === 1 ? "" : "s"} anexada{fotos.length === 1 ? "" : "s"}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   function handleAdicionarFotos(fileList: FileList | null) {
     if (!fileList || !onFotosChange) return;
-    const novas = Array.from(fileList).map((f) => f.name);
-    onFotosChange([...fotos, ...novas]);
+    const arquivos = Array.from(fileList);
+    const novasUrls: Record<string, string> = {};
+    arquivos.forEach((f) => {
+      novasUrls[f.name] = URL.createObjectURL(f);
+    });
+    setPreviewUrls((prev) => ({ ...prev, ...novasUrls }));
+    onFotosChange([...fotos, ...arquivos.map((f) => f.name)]);
   }
 
   function handleRemoverFoto(nome: string) {
     if (!onFotosChange) return;
+    setPreviewUrls((prev) => {
+      if (prev[nome]) URL.revokeObjectURL(prev[nome]);
+      const resto = { ...prev };
+      delete resto[nome];
+      return resto;
+    });
     onFotosChange(fotos.filter((f) => f !== nome));
   }
 
@@ -87,14 +156,34 @@ export function FullKitForm({
           </Label>
 
           {p.tipo === "boolean" && (
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={respostas[p.id] === true}
-                onCheckedChange={(checked) => onChangeResposta?.(p.id, checked)}
-              />
-              <span className="text-sm text-muted-foreground">
-                {respostas[p.id] === true ? "Sim" : "Não"}
-              </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={respostas[p.id] === "sim" ? "default" : "outline"}
+                onClick={() => onChangeResposta?.(p.id, "sim")}
+              >
+                Sim
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={respostas[p.id] === "nao" ? "default" : "outline"}
+                onClick={() => onChangeResposta?.(p.id, "nao")}
+              >
+                Não
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={respostas[p.id] === "nao_aplica" ? "secondary" : "outline"}
+                onClick={() => onChangeResposta?.(p.id, "nao_aplica")}
+              >
+                Não se aplica
+              </Button>
+              {respostas[p.id] === undefined && p.obrigatoria && (
+                <span className="text-xs text-muted-foreground italic">Ainda não respondida</span>
+              )}
             </div>
           )}
 
@@ -129,10 +218,26 @@ export function FullKitForm({
                 />
               </label>
               {fotos.length > 0 && (
-                <ul className="space-y-1">
+                <ul className="space-y-1.5">
                   {fotos.map((f) => (
-                    <li key={f} className="flex items-center justify-between rounded bg-muted px-2 py-1 text-xs">
-                      <span className="truncate">{f}</span>
+                    <li key={f} className="flex items-center gap-2 rounded bg-muted px-2 py-1.5 text-xs">
+                      {previewUrls[f] ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- session blob: URL, not optimizable by next/image
+                        <img
+                          src={previewUrls[f]}
+                          alt={f}
+                          className="size-8 shrink-0 rounded object-cover"
+                        />
+                      ) : (
+                        <div
+                          className={cn(
+                            "flex size-8 shrink-0 items-center justify-center rounded bg-background text-muted-foreground"
+                          )}
+                        >
+                          <ImageIcon className="size-4" />
+                        </div>
+                      )}
+                      <span className="flex-1 truncate">{f}</span>
                       <button
                         type="button"
                         onClick={() => handleRemoverFoto(f)}

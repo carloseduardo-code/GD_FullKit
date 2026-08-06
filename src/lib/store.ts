@@ -2,14 +2,12 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type {
   Apontamento,
-  Elemento,
   Etapa,
   Obra,
   Pergunta,
   Resposta,
   ServicoNotavel,
   StatusResultado,
-  TipoElemento,
   TipoPergunta,
 } from "@/lib/types";
 import { calcularStatus } from "@/lib/status";
@@ -25,7 +23,6 @@ function nowIso(): string {
 
 interface FullKitState {
   obras: Obra[];
-  elementos: Elemento[];
   etapas: Etapa[];
   servicos: ServicoNotavel[];
   perguntas: Pergunta[];
@@ -35,11 +32,7 @@ interface FullKitState {
   updateObra: (id: string, patch: Partial<Omit<Obra, "id">>) => void;
   removeObra: (id: string) => void;
 
-  addElemento: (obraId: string, nome: string, tipo: TipoElemento) => Elemento;
-  updateElemento: (id: string, patch: Partial<Omit<Elemento, "id" | "obraId">>) => void;
-  removeElemento: (id: string) => void;
-
-  addEtapa: (obraId: string, nome: string) => Etapa;
+  addEtapa: (obraId: string, nome: string, etapaPaiId?: string) => Etapa;
   updateEtapa: (id: string, patch: Partial<Omit<Etapa, "id" | "obraId">>) => void;
   removeEtapa: (id: string) => void;
   reorderEtapa: (id: string, direcao: "subir" | "descer") => void;
@@ -55,7 +48,6 @@ interface FullKitState {
   reorderPergunta: (id: string, direcao: "subir" | "descer") => void;
 
   salvarApontamento: (input: {
-    elementoId: string;
     servicoId: string;
     respostas: Resposta[];
     fotos: string[];
@@ -63,8 +55,8 @@ interface FullKitState {
     autor: string;
   }) => Apontamento;
 
-  getUltimoApontamento: (elementoId: string, servicoId: string) => Apontamento | undefined;
-  getStatusServico: (elementoId: string, servicoId: string) => StatusResultado;
+  getUltimoApontamento: (servicoId: string) => Apontamento | undefined;
+  getStatusServico: (servicoId: string) => StatusResultado;
 }
 
 function reorder<T extends { id: string; ordem: number }>(
@@ -89,7 +81,6 @@ export const useFullKitStore = create<FullKitState>()(
   persist(
     (set, get) => ({
       obras: SEED.obras,
-      elementos: SEED.elementos,
       etapas: SEED.etapas,
       servicos: SEED.servicos,
       perguntas: SEED.perguntas,
@@ -105,28 +96,30 @@ export const useFullKitStore = create<FullKitState>()(
           obras: s.obras.map((o) => (o.id === obraId ? { ...o, ...patch } : o)),
         })),
       removeObra: (obraId) =>
-        set((s) => ({
-          obras: s.obras.filter((o) => o.id !== obraId),
-          elementos: s.elementos.filter((e) => e.obraId !== obraId),
-          etapas: s.etapas.filter((e) => e.obraId !== obraId),
-        })),
+        set((s) => {
+          const etapaIds = new Set(s.etapas.filter((e) => e.obraId === obraId).map((e) => e.id));
+          const servicoIds = new Set(s.servicos.filter((sv) => etapaIds.has(sv.etapaId)).map((sv) => sv.id));
+          return {
+            obras: s.obras.filter((o) => o.id !== obraId),
+            etapas: s.etapas.filter((e) => e.obraId !== obraId),
+            servicos: s.servicos.filter((sv) => !etapaIds.has(sv.etapaId)),
+            perguntas: s.perguntas.filter((p) => !servicoIds.has(p.servicoId)),
+            apontamentos: s.apontamentos.filter((a) => !servicoIds.has(a.servicoId)),
+          };
+        }),
 
-      addElemento: (obraId, nome, tipo) => {
-        const elemento: Elemento = { id: id(), obraId, nome, tipo };
-        set((s) => ({ elementos: [...s.elementos, elemento] }));
-        return elemento;
-      },
-      updateElemento: (elementoId, patch) =>
-        set((s) => ({
-          elementos: s.elementos.map((e) => (e.id === elementoId ? { ...e, ...patch } : e)),
-        })),
-      removeElemento: (elementoId) =>
-        set((s) => ({ elementos: s.elementos.filter((e) => e.id !== elementoId) })),
-
-      addEtapa: (obraId, nome) => {
-        const etapasDaObra = get().etapas.filter((e) => e.obraId === obraId);
-        const ordem = etapasDaObra.length > 0 ? Math.max(...etapasDaObra.map((e) => e.ordem)) + 1 : 1;
-        const etapa: Etapa = { id: id(), obraId, nome, ordem };
+      addEtapa: (obraId, nome, etapaPaiId) => {
+        const irmas = get().etapas.filter((e) => e.obraId === obraId && e.etapaPaiId === etapaPaiId);
+        const ordem = irmas.length > 0 ? Math.max(...irmas.map((e) => e.ordem)) + 1 : 1;
+        const anterior = irmas.find((e) => e.ordem === ordem - 1);
+        const etapa: Etapa = {
+          id: id(),
+          obraId,
+          etapaPaiId,
+          nome,
+          ordem,
+          predecessorasIds: anterior ? [anterior.id] : [],
+        };
         set((s) => ({ etapas: [...s.etapas, etapa] }));
         return etapa;
       },
@@ -135,17 +128,38 @@ export const useFullKitStore = create<FullKitState>()(
           etapas: s.etapas.map((e) => (e.id === etapaId ? { ...e, ...patch } : e)),
         })),
       removeEtapa: (etapaId) =>
-        set((s) => ({
-          etapas: s.etapas.filter((e) => e.id !== etapaId),
-          servicos: s.servicos.filter((sv) => sv.etapaId !== etapaId),
-        })),
+        set((s) => {
+          const idsParaRemover = new Set<string>();
+          const coletar = (alvoId: string) => {
+            idsParaRemover.add(alvoId);
+            s.etapas.filter((e) => e.etapaPaiId === alvoId).forEach((e) => coletar(e.id));
+          };
+          coletar(etapaId);
+
+          const servicoIds = new Set(
+            s.servicos.filter((sv) => idsParaRemover.has(sv.etapaId)).map((sv) => sv.id)
+          );
+
+          return {
+            etapas: s.etapas
+              .filter((e) => !idsParaRemover.has(e.id))
+              .map((e) => ({
+                ...e,
+                predecessorasIds: e.predecessorasIds.filter((pid) => !idsParaRemover.has(pid)),
+              })),
+            servicos: s.servicos.filter((sv) => !idsParaRemover.has(sv.etapaId)),
+            perguntas: s.perguntas.filter((p) => !servicoIds.has(p.servicoId)),
+            apontamentos: s.apontamentos.filter((a) => !servicoIds.has(a.servicoId)),
+          };
+        }),
       reorderEtapa: (etapaId, direcao) =>
         set((s) => {
           const etapa = s.etapas.find((e) => e.id === etapaId);
           if (!etapa) return s;
-          const daObra = s.etapas.filter((e) => e.obraId === etapa.obraId);
-          const reordenadas = reorder(daObra, etapaId, direcao);
-          const outras = s.etapas.filter((e) => e.obraId !== etapa.obraId);
+          const mesmoGrupo = (e: Etapa) => e.obraId === etapa.obraId && e.etapaPaiId === etapa.etapaPaiId;
+          const irmas = s.etapas.filter(mesmoGrupo);
+          const reordenadas = reorder(irmas, etapaId, direcao);
+          const outras = s.etapas.filter((e) => !mesmoGrupo(e));
           return { etapas: [...outras, ...reordenadas] };
         }),
 
@@ -165,6 +179,7 @@ export const useFullKitStore = create<FullKitState>()(
         set((s) => ({
           servicos: s.servicos.filter((sv) => sv.id !== servicoId),
           perguntas: s.perguntas.filter((p) => p.servicoId !== servicoId),
+          apontamentos: s.apontamentos.filter((a) => a.servicoId !== servicoId),
         })),
       reorderServico: (servicoId, direcao) =>
         set((s) => {
@@ -200,10 +215,9 @@ export const useFullKitStore = create<FullKitState>()(
           return { perguntas: [...outras, ...reordenadas] };
         }),
 
-      salvarApontamento: ({ elementoId, servicoId, respostas, fotos, observacoes, autor }) => {
+      salvarApontamento: ({ servicoId, respostas, fotos, observacoes, autor }) => {
         const apontamento: Apontamento = {
           id: id(),
-          elementoId,
           servicoId,
           respostas,
           fotos,
@@ -215,25 +229,42 @@ export const useFullKitStore = create<FullKitState>()(
         return apontamento;
       },
 
-      getUltimoApontamento: (elementoId, servicoId) => {
-        const doServico = get().apontamentos.filter(
-          (a) => a.elementoId === elementoId && a.servicoId === servicoId
-        );
+      getUltimoApontamento: (servicoId) => {
+        const doServico = get().apontamentos.filter((a) => a.servicoId === servicoId);
         if (doServico.length === 0) return undefined;
-        return doServico.reduce((mais, atual) =>
-          atual.criadoEm > mais.criadoEm ? atual : mais
-        );
+        return doServico.reduce((mais, atual) => (atual.criadoEm > mais.criadoEm ? atual : mais));
       },
 
-      getStatusServico: (elementoId, servicoId) => {
+      getStatusServico: (servicoId) => {
         const perguntas = get().perguntas.filter((p) => p.servicoId === servicoId);
-        const ultimo = get().getUltimoApontamento(elementoId, servicoId);
+        const ultimo = get().getUltimoApontamento(servicoId);
         return calcularStatus(perguntas, ultimo);
       },
     }),
     {
       name: "fullkit-mock-store",
-      version: 1,
+      version: 3,
+      migrate: (persistedState, version) => {
+        const state = persistedState as {
+          etapas?: Array<Partial<Etapa> & { id: string }>;
+          apontamentos?: unknown;
+          elementos?: unknown;
+        };
+
+        if (version < 2) {
+          state.etapas = (state.etapas ?? []).map((e) => ({
+            ...e,
+            predecessorasIds: e.predecessorasIds ?? [],
+          }));
+        }
+
+        if (version < 3) {
+          delete state.elementos;
+          state.apontamentos = [];
+        }
+
+        return state;
+      },
     }
   )
 );

@@ -1,30 +1,18 @@
 export type TipoPergunta = "boolean" | "texto" | "numero" | "foto";
 
-export type TipoElemento =
-  | "Bloco"
-  | "Sapata"
-  | "Pedestal"
-  | "Piso"
-  | "Outro";
-
 export interface Obra {
   id: string;
   nome: string;
   endereco: string;
 }
 
-export interface Elemento {
-  id: string;
-  obraId: string;
-  nome: string;
-  tipo: TipoElemento;
-}
-
 export interface Etapa {
   id: string;
   obraId: string;
+  etapaPaiId?: string;
   nome: string;
   ordem: number;
+  predecessorasIds: string[];
 }
 
 export interface ServicoNotavel {
@@ -32,6 +20,8 @@ export interface ServicoNotavel {
   etapaId: string;
   nome: string;
   ordem: number;
+  dataInicioPrevista?: string;
+  dataFimPrevista?: string;
 }
 
 export interface Pergunta {
@@ -43,14 +33,15 @@ export interface Pergunta {
   ordem: number;
 }
 
+export type RespostaBooleana = "sim" | "nao" | "nao_aplica";
+
 export interface Resposta {
   perguntaId: string;
-  valor: boolean | string | number | null;
+  valor: RespostaBooleana | string | number | null;
 }
 
 export interface Apontamento {
   id: string;
-  elementoId: string;
   servicoId: string;
   respostas: Resposta[];
   fotos: string[];

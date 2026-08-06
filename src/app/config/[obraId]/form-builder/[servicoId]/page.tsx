@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { notFound, useParams } from "next/navigation";
+import { toast } from "sonner";
 import { Eye, Pencil, Plus } from "lucide-react";
 import { useFullKitStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
@@ -32,6 +33,7 @@ export default function FormBuilderPage() {
     if (!texto.trim()) return;
     addPergunta(servicoId, texto.trim(), "boolean", true);
     setTexto("");
+    toast.success("Pergunta adicionada");
   }
 
   return (

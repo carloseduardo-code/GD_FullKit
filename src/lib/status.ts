@@ -12,7 +12,7 @@ function respostaAtende(pergunta: Pergunta, resposta: Resposta | undefined, foto
   }
   if (!resposta) return false;
   const { valor } = resposta;
-  if (pergunta.tipo === "boolean") return valor === true;
+  if (pergunta.tipo === "boolean") return valor === "sim" || valor === "nao_aplica";
   if (valor === null || valor === undefined) return false;
   if (typeof valor === "string") return valor.trim().length > 0;
   return true;
