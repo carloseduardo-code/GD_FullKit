@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight, Calendar, ChevronLeft, ChevronRight, Clock, ListTree } from "lucide-react";
 import { useFullKitStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
 import {
   caminhoEtapa,
-  etapaAtrasada,
   etapaLiberada,
   janelaDatasServicos,
   predecessorasPendentes,
@@ -42,71 +41,97 @@ export default function EtapaGestaoPage() {
   const progresso = progressoPorEtapaId.get(etapaId)!;
   const janela = janelaDatasServicos(servicosDoSubtree(etapaId, etapasDaObra, servicos));
   const liberada = etapaLiberada(etapa, progressoPorEtapaId);
-  const atrasada = etapaAtrasada(janela, progresso);
   const pendentes = predecessorasPendentes(etapa, etapasDaObra, progressoPorEtapaId);
   const sucessoras = sucessorasDe(etapaId, etapasDaObra);
 
   const filhas = etapasDaObra.filter((e) => e.etapaPaiId === etapaId).sort((a, b) => a.ordem - b.ordem);
   const servicosDiretos = servicos.filter((sv) => sv.etapaId === etapaId).sort((a, b) => a.ordem - b.ordem);
+  const temDetalhesExtras = janela.inicio || janela.fim || (!liberada && pendentes.length > 0) || sucessoras.length > 0;
 
   return (
-    <div className="space-y-8">
-      <Link href={voltarHref} className="flex items-center gap-1 text-sm text-muted-foreground">
+    <div className="space-y-6">
+      <Link href={voltarHref} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ChevronLeft className="size-4" />
         Voltar
       </Link>
 
-      <div className="space-y-2">
-        <p className="text-xs text-muted-foreground">{caminho.map((e) => e.nome).join(" › ")}</p>
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight">{etapa.nome}</h1>
+      <div className="overflow-hidden rounded-xl border bg-card">
+        <div className="flex flex-wrap items-start justify-between gap-4 p-5">
+          <div className="space-y-1.5">
+            {caminho.length > 1 && (
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {caminho.slice(0, -1).map((e) => e.nome).join(" / ")}
+              </p>
+            )}
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                <ListTree className="size-5 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-xl font-semibold tracking-tight">{etapa.nome}</h1>
+                <p className="text-sm text-muted-foreground">{obra.nome}</p>
+              </div>
+            </div>
+          </div>
           {liberada ? (
             <Badge className="bg-emerald-600 text-white">Liberada</Badge>
           ) : (
             <Badge variant="secondary">Bloqueada</Badge>
           )}
-          {atrasada && <Badge variant="destructive">Atrasada</Badge>}
         </div>
-        <p className="text-muted-foreground">{obra.nome}</p>
-        {!liberada && pendentes.length > 0 && (
-          <p className="text-sm text-muted-foreground">Aguardando: {pendentes.map((p) => p.nome).join(", ")}</p>
-        )}
-        {(janela.inicio || janela.fim) && (
-          <p className="text-sm text-muted-foreground">
-            Previsto: {janela.inicio ?? "—"} até {janela.fim ?? "—"}
-          </p>
-        )}
-        {sucessoras.length > 0 && (
-          <p className="text-sm text-muted-foreground">Libera: {sucessoras.map((s) => s.nome).join(", ")}</p>
+
+        {temDetalhesExtras && (
+          <div className="flex flex-wrap gap-x-6 gap-y-2 border-t bg-muted/30 px-5 py-3 text-sm text-muted-foreground">
+            {(janela.inicio || janela.fim) && (
+              <span className="flex items-center gap-1.5">
+                <Calendar className="size-3.5" />
+                {janela.inicio ?? "—"} até {janela.fim ?? "—"}
+              </span>
+            )}
+            {!liberada && pendentes.length > 0 && (
+              <span className="flex items-center gap-1.5">
+                <Clock className="size-3.5" />
+                Aguardando {pendentes.map((p) => p.nome).join(", ")}
+              </span>
+            )}
+            {sucessoras.length > 0 && (
+              <span className="flex items-center gap-1.5">
+                <ArrowRight className="size-3.5" />
+                Libera {sucessoras.map((s) => s.nome).join(", ")}
+              </span>
+            )}
+          </div>
         )}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-4">
-        <Card>
-          <CardHeader>
-            <CardDescription>Concluído</CardDescription>
-            <CardTitle className="text-2xl">{progresso.percentual}%</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Em andamento</CardDescription>
-            <CardTitle className="text-2xl">{progresso.emAndamento}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Concluídas</CardDescription>
-            <CardTitle className="text-2xl text-emerald-600">{progresso.pronto}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Pendências</CardDescription>
-            <CardTitle className="text-2xl text-red-600">{progresso.pendencias}</CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
+      {filhas.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-4">
+          <Card>
+            <CardHeader>
+              <CardDescription>Concluído</CardDescription>
+              <CardTitle className="text-2xl">{progresso.percentual}%</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardDescription>Em andamento</CardDescription>
+              <CardTitle className="text-2xl">{progresso.emAndamento}</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardDescription>Concluídas</CardDescription>
+              <CardTitle className="text-2xl text-emerald-600">{progresso.pronto}</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardDescription>Pendências</CardDescription>
+              <CardTitle className="text-2xl text-red-600">{progresso.pendencias}</CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
+      )}
 
       {filhas.length > 0 && (
         <div className="space-y-3">
@@ -117,7 +142,7 @@ export default function EtapaGestaoPage() {
               const liberadaFilha = etapaLiberada(filha, progressoPorEtapaId);
               return (
                 <Link key={filha.id} href={`/gestao/${obraId}/etapa/${filha.id}`}>
-                  <Card className="transition-colors hover:border-primary hover:bg-accent/40 cursor-pointer">
+                  <Card className="transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md cursor-pointer">
                     <CardHeader className="flex-row items-center gap-3 space-y-0 py-3">
                       <div className="flex-1 space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
@@ -142,13 +167,13 @@ export default function EtapaGestaoPage() {
 
       {servicosDiretos.length > 0 && (
         <div className="space-y-3">
-          <h2 className="font-medium">Serviços notáveis</h2>
+          {filhas.length > 0 && <h2 className="font-medium">Serviços notáveis</h2>}
           <div className="space-y-2">
             {servicosDiretos.map((servico) => {
               const resultado = getStatusServico(servico.id);
               return (
                 <Link key={servico.id} href={`/gestao/${obraId}/servico/${servico.id}`}>
-                  <Card className="transition-colors hover:border-primary hover:bg-accent/40 cursor-pointer">
+                  <Card className="transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md cursor-pointer">
                     <CardHeader className="flex-row items-center gap-3 space-y-0 py-3">
                       <div className="flex-1 space-y-1">
                         <CardTitle className="text-sm font-medium">{servico.nome}</CardTitle>

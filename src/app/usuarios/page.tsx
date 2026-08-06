@@ -1,0 +1,178 @@
+"use client";
+
+import { useEffect, useState, type FormEvent } from "react";
+import { toast } from "sonner";
+import { Loader2, UserPlus } from "lucide-react";
+import { ROLE_LABEL, type Role } from "@/lib/store-auth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+interface Usuario {
+  id: string;
+  username: string;
+  nome: string;
+  role: Role;
+}
+
+type PapelCriavel = "administrador" | "apontador";
+
+const PAPEIS_CRIAVEIS: { value: PapelCriavel; label: string }[] = [
+  { value: "apontador", label: "Apontador" },
+  { value: "administrador", label: "Administrador" },
+];
+
+export default function UsuariosPage() {
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [carregando, setCarregando] = useState(true);
+
+  const [nome, setNome] = useState("");
+  const [username, setUsername] = useState("");
+  const [senha, setSenha] = useState("");
+  const [papel, setPapel] = useState<PapelCriavel>("apontador");
+  const [criando, setCriando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  async function carregarUsuarios() {
+    const res = await fetch("/api/usuarios");
+    if (res.ok) {
+      const { usuarios } = await res.json();
+      setUsuarios(usuarios);
+    }
+    setCarregando(false);
+  }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- busca inicial da lista, não sincronização de estado
+    carregarUsuarios();
+  }, []);
+
+  async function handleCriar(e: FormEvent) {
+    e.preventDefault();
+    setErro(null);
+    setCriando(true);
+    const res = await fetch("/api/usuarios", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nome: nome.trim(), username: username.trim(), senha, role: papel }),
+    });
+    const data = await res.json();
+    setCriando(false);
+
+    if (!res.ok) {
+      setErro(data.error ?? "Não foi possível criar o usuário.");
+      return;
+    }
+
+    toast.success("Usuário criado");
+    setNome("");
+    setUsername("");
+    setSenha("");
+    setPapel("apontador");
+    setCarregando(true);
+    carregarUsuarios();
+  }
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Usuários</h1>
+        <p className="text-muted-foreground">Crie acessos de Administrador ou Apontador para a equipe.</p>
+      </div>
+
+      <Card className="max-w-md">
+        <CardHeader>
+          <CardTitle className="text-base">Novo usuário</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleCriar} className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="nome">Nome</Label>
+              <Input id="nome" required value={nome} onChange={(e) => setNome(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="username">Usuário (login)</Label>
+              <Input
+                id="username"
+                required
+                autoCapitalize="off"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="ex.: joao.silva"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="senha">Senha</Label>
+              <Input
+                id="senha"
+                type="password"
+                required
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Papel</Label>
+              <Select value={papel} onValueChange={(v) => setPapel(v as PapelCriavel)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue>{(v: PapelCriavel) => PAPEIS_CRIAVEIS.find((p) => p.value === v)?.label ?? v}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {PAPEIS_CRIAVEIS.map((p) => (
+                    <SelectItem key={p.value} value={p.value}>
+                      {p.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {erro && <p className="text-xs text-red-600">{erro}</p>}
+            <Button type="submit" disabled={criando}>
+              {criando ? <Loader2 data-icon="inline-start" className="animate-spin" /> : <UserPlus data-icon="inline-start" />}
+              Criar usuário
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Todos os usuários</CardTitle>
+          <CardDescription>{usuarios.length} usuário{usuarios.length === 1 ? "" : "s"} cadastrado{usuarios.length === 1 ? "" : "s"}.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {carregando ? (
+            <div className="flex justify-center py-6">
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Usuário</TableHead>
+                  <TableHead>Papel</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {usuarios.map((u) => (
+                  <TableRow key={u.id}>
+                    <TableCell className="font-medium">{u.nome}</TableCell>
+                    <TableCell className="text-muted-foreground">{u.username}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{ROLE_LABEL[u.role]}</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { StoreHydrator } from "@/app/store-hydrator";
+import { AuthHydrator } from "@/app/auth-hydrator";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,7 +27,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        {children}
+        <AuthHydrator>
+          <StoreHydrator>{children}</StoreHydrator>
+        </AuthHydrator>
         <Toaster />
       </body>
     </html>

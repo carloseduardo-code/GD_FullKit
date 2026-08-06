@@ -137,7 +137,7 @@ export default function ServicosPage() {
 
   const servicosOrdenados = [...servicos].sort((a, b) => a.ordem - b.ordem);
 
-  function handleCriar() {
+  async function handleCriar() {
     const trimmed = nome.trim();
     if (!trimmed) {
       setErroNome("Nome não pode ficar vazio.");
@@ -147,10 +147,14 @@ export default function ServicosPage() {
       setErroNome("Já existe um serviço com esse nome nesta etapa.");
       return;
     }
-    addServico(etapaId, trimmed);
-    setNome("");
-    setErroNome(null);
-    toast.success("Serviço criado");
+    try {
+      await addServico(etapaId, trimmed);
+      setNome("");
+      setErroNome(null);
+      toast.success("Serviço criado");
+    } catch {
+      // erro já mostrado pelo store
+    }
   }
 
   function descreverExclusao(servico: ServicoNotavel) {
@@ -235,9 +239,13 @@ export default function ServicosPage() {
           onOpenChange={(open) => !open && setServicoParaExcluir(null)}
           title="Excluir serviço"
           description={descreverExclusao(servicoParaExcluir)}
-          onConfirm={() => {
-            removeServico(servicoParaExcluir.id);
-            toast.success("Serviço excluído");
+          onConfirm={async () => {
+            try {
+              await removeServico(servicoParaExcluir.id);
+              toast.success("Serviço excluído");
+            } catch {
+              // erro já mostrado pelo store
+            }
           }}
         />
       )}

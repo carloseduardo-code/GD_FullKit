@@ -21,7 +21,7 @@ export default function GestaoObrasPage() {
         )}
         {obras.map((obra) => (
           <Link key={obra.id} href={`/gestao/${obra.id}`}>
-            <Card className="h-full transition-colors hover:border-primary hover:bg-accent/40 cursor-pointer">
+            <Card className="h-full transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md cursor-pointer">
               <CardHeader className="space-y-1.5">
                 <Building2 className="size-5 text-primary" />
                 <CardTitle>{obra.nome}</CardTitle>

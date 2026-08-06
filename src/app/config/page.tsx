@@ -42,7 +42,7 @@ export default function ObrasPage() {
 
   const [obraParaExcluir, setObraParaExcluir] = useState<Obra | null>(null);
 
-  function handleCriar() {
+  async function handleCriar() {
     const trimmed = nome.trim();
     if (!trimmed) {
       setErroNome("Informe um nome para a obra.");
@@ -52,11 +52,15 @@ export default function ObrasPage() {
       setErroNome("Já existe uma obra com esse nome.");
       return;
     }
-    addObra(trimmed, endereco.trim());
-    setNome("");
-    setEndereco("");
-    setErroNome(null);
-    toast.success("Obra cadastrada");
+    try {
+      await addObra(trimmed, endereco.trim());
+      setNome("");
+      setEndereco("");
+      setErroNome(null);
+      toast.success("Obra cadastrada");
+    } catch {
+      // erro já mostrado pelo store
+    }
   }
 
   function abrirEdicao(e: MouseEvent, obra: Obra) {
@@ -68,7 +72,7 @@ export default function ObrasPage() {
     setEditErro(null);
   }
 
-  function salvarEdicao() {
+  async function salvarEdicao() {
     if (!editingObra) return;
     const trimmed = editNome.trim();
     if (!trimmed) {
@@ -79,9 +83,13 @@ export default function ObrasPage() {
       setEditErro("Já existe uma obra com esse nome.");
       return;
     }
-    updateObra(editingObra.id, { nome: trimmed, endereco: editEndereco.trim() });
-    setEditingObra(null);
-    toast.success("Obra atualizada");
+    try {
+      await updateObra(editingObra.id, { nome: trimmed, endereco: editEndereco.trim() });
+      setEditingObra(null);
+      toast.success("Obra atualizada");
+    } catch {
+      // erro já mostrado pelo store
+    }
   }
 
   function abrirExclusao(e: MouseEvent, obra: Obra) {
@@ -122,7 +130,7 @@ export default function ObrasPage() {
       <div className="grid gap-4 sm:grid-cols-2">
         {obras.map((obra) => (
           <Link key={obra.id} href={`/config/${obra.id}`}>
-            <Card className="h-full transition-colors hover:border-primary hover:bg-accent/40 cursor-pointer">
+            <Card className="h-full transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md cursor-pointer">
               <CardHeader className="flex-row items-start justify-between space-y-0">
                 <div className="space-y-1.5">
                   <Building2 className="size-5 text-primary" />
@@ -210,9 +218,13 @@ export default function ObrasPage() {
           onOpenChange={(open) => !open && setObraParaExcluir(null)}
           title="Excluir obra"
           description={descreverExclusao(obraParaExcluir)}
-          onConfirm={() => {
-            removeObra(obraParaExcluir.id);
-            toast.success("Obra excluída");
+          onConfirm={async () => {
+            try {
+              await removeObra(obraParaExcluir.id);
+              toast.success("Obra excluída");
+            } catch {
+              // erro já mostrado pelo store
+            }
           }}
         />
       )}

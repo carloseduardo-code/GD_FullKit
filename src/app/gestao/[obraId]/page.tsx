@@ -16,6 +16,7 @@ import {
 } from "@/lib/planejamento";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 export default function PainelGestorPage() {
   const { obraId } = useParams<{ obraId: string }>();
@@ -52,42 +53,43 @@ export default function PainelGestorPage() {
 
   const nLiberadas = etapasComStatus.filter((e) => e.liberada).length;
   const nBloqueadas = etapasComStatus.length - nLiberadas;
-  const nAtrasadas = etapasComStatus.filter((e) => e.atrasada).length;
+  const totalPendencias = etapasComStatus.reduce((acc, e) => acc + e.progresso.pendencias, 0);
 
   const gargalos = etapasComStatus.filter((e) => e.atrasada || (e.liberada && e.progresso.pendencias > 0));
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{obra.nome}</h1>
-        <p className="text-muted-foreground">Painel do Gestor — fluxo executivo da obra.</p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-wider text-primary">Painel do Gestor</p>
+          <h1 className="text-3xl font-semibold tracking-tight">{obra.nome}</h1>
+          <p className="text-sm text-muted-foreground">Fluxo executivo e prontidão operacional da obra.</p>
+        </div>
+        <div className="flex items-center gap-3 rounded-2xl border bg-card px-4 py-2.5 shadow-sm">
+          <span className="text-3xl font-semibold tabular-nums text-primary">{percentualGeral}%</span>
+          <span className="text-xs leading-tight text-muted-foreground">
+            prontidão
+            <br />
+            geral
+          </span>
+        </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-4">
-        <Card>
-          <CardHeader>
-            <CardDescription>Evolução geral</CardDescription>
-            <CardTitle className="text-2xl">{percentualGeral}%</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Etapas liberadas</CardDescription>
-            <CardTitle className="text-2xl text-emerald-600">{nLiberadas}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Etapas bloqueadas</CardDescription>
-            <CardTitle className="text-2xl text-muted-foreground">{nBloqueadas}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Etapas atrasadas</CardDescription>
-            <CardTitle className="text-2xl text-red-600">{nAtrasadas}</CardTitle>
-          </CardHeader>
-        </Card>
+      <div className="flex flex-wrap gap-2.5">
+        <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs font-medium">
+          <span className="size-1.5 rounded-full bg-emerald-500" />
+          {nLiberadas} liberada{nLiberadas === 1 ? "" : "s"}
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs font-medium">
+          <span className="size-1.5 rounded-full bg-muted-foreground/40" />
+          {nBloqueadas} bloqueada{nBloqueadas === 1 ? "" : "s"}
+        </span>
+        {totalPendencias > 0 && (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50/50 px-3 py-1.5 text-xs font-medium text-red-700 dark:border-red-900 dark:bg-red-950/20 dark:text-red-300">
+            <span className="size-1.5 rounded-full bg-red-500" />
+            {totalPendencias} pendência{totalPendencias === 1 ? "" : "s"}
+          </span>
+        )}
       </div>
 
       {gargalos.length > 0 && (
@@ -129,41 +131,59 @@ export default function PainelGestorPage() {
           {etapasComStatus.length === 0 && (
             <p className="text-sm text-muted-foreground">Nenhuma etapa cadastrada nesta obra.</p>
           )}
-          {etapasComStatus.map(({ etapa, progresso, liberada, atrasada, pendentes }) => (
-            <Link key={etapa.id} href={`/gestao/${obraId}/etapa/${etapa.id}`}>
-              <Card className="transition-colors hover:border-primary hover:bg-accent/40 cursor-pointer">
-                <CardHeader className="flex-row items-center gap-3 space-y-0">
-                  <div className="flex-1 space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <CardTitle className="text-base">{etapa.nome}</CardTitle>
-                      {liberada ? (
-                        <Badge className="bg-emerald-600 text-white">Liberada</Badge>
+          {etapasComStatus.map(({ etapa, liberada, atrasada, pendentes }) => {
+            const servicosDaEtapa = servicosDoSubtree(etapa.id, etapas, servicos);
+            return (
+              <Link key={etapa.id} href={`/gestao/${obraId}/etapa/${etapa.id}`}>
+                <Card className="transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md cursor-pointer">
+                  <CardHeader className="flex-row items-center gap-3 space-y-0">
+                    <div className="flex-1 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <CardTitle className="text-base">{etapa.nome}</CardTitle>
+                        {liberada ? (
+                          <Badge className="bg-emerald-600 text-white">Liberada</Badge>
+                        ) : (
+                          <Badge variant="secondary">Bloqueada</Badge>
+                        )}
+                        {atrasada && <Badge variant="destructive">Atrasada</Badge>}
+                      </div>
+                      {!liberada && pendentes.length > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Aguardando: {pendentes.map((p) => p.nome).join(", ")}
+                        </p>
+                      )}
+                      {servicosDaEtapa.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5 pt-0.5">
+                          {servicosDaEtapa.map((servico) => {
+                            const status = getStatusServico(servico.id).status;
+                            return (
+                              <span
+                                key={servico.id}
+                                className="inline-flex items-center gap-1.5 rounded-full border bg-background px-2 py-0.5 text-xs text-muted-foreground"
+                              >
+                                <span
+                                  className={cn(
+                                    "size-1.5 shrink-0 rounded-full",
+                                    status === "pronto" && "bg-emerald-500",
+                                    status === "bloqueado" && "bg-red-500",
+                                    status === "nao_iniciado" && "bg-muted-foreground/40"
+                                  )}
+                                />
+                                {servico.nome}
+                              </span>
+                            );
+                          })}
+                        </div>
                       ) : (
-                        <Badge variant="secondary">Bloqueada</Badge>
-                      )}
-                      {atrasada && <Badge variant="destructive">Atrasada</Badge>}
-                    </div>
-                    {!liberada && pendentes.length > 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        Aguardando: {pendentes.map((p) => p.nome).join(", ")}
-                      </p>
-                    )}
-                    <div className="flex flex-wrap gap-3 pt-0.5 text-xs text-muted-foreground">
-                      <span>{progresso.percentual}% concluído</span>
-                      <span>{progresso.emAndamento} em andamento</span>
-                      <span>{progresso.pronto} concluídas</span>
-                      {progresso.pendencias > 0 && (
-                        <span className="text-red-600">
-                          {progresso.pendencias} pendência{progresso.pendencias === 1 ? "" : "s"}
-                        </span>
+                        <p className="text-xs text-muted-foreground pt-0.5">Nenhum serviço notável cadastrado.</p>
                       )}
                     </div>
-                  </div>
-                  <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-                </CardHeader>
-              </Card>
-            </Link>
-          ))}
+                    <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+                  </CardHeader>
+                </Card>
+              </Link>
+            );
+          })}
         </div>
       </div>
     </div>

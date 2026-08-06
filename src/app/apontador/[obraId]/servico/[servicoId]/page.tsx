@@ -71,19 +71,23 @@ export default function ResponderFullKitPage() {
     }
   }
 
-  function handleSalvar() {
+  async function handleSalvar() {
     const listaRespostas: Resposta[] = perguntasOrdenadas.map((p) => ({
       perguntaId: p.id,
       valor: respostas[p.id] ?? null,
     }));
 
-    salvarApontamento({
-      servicoId,
-      respostas: listaRespostas,
-      fotos,
-      observacoes,
-      autor: "Apontador (protótipo)",
-    });
+    try {
+      await salvarApontamento({
+        servicoId,
+        respostas: listaRespostas,
+        fotos,
+        observacoes,
+        autor: "Apontador (protótipo)",
+      });
+    } catch {
+      return; // erro já mostrado pelo store
+    }
 
     setBaseline(JSON.stringify({ respostas, fotos, observacoes }));
 

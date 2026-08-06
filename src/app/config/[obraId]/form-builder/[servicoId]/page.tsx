@@ -29,11 +29,15 @@ export default function FormBuilderPage() {
 
   const perguntasOrdenadas = [...perguntas].sort((a, b) => a.ordem - b.ordem);
 
-  function handleCriar() {
+  async function handleCriar() {
     if (!texto.trim()) return;
-    addPergunta(servicoId, texto.trim(), "boolean", true);
-    setTexto("");
-    toast.success("Pergunta adicionada");
+    try {
+      await addPergunta(servicoId, texto.trim(), "boolean", true);
+      setTexto("");
+      toast.success("Pergunta adicionada");
+    } catch {
+      // erro já mostrado pelo store
+    }
   }
 
   return (

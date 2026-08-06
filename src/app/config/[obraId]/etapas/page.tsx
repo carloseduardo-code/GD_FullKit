@@ -57,7 +57,7 @@ function EtapaNode({
   const servicosDiretos = servicos.filter((sv) => sv.etapaId === etapa.id);
   const totalServicosSubtree = servicosDoSubtree(etapa.id, todasEtapas, servicos).length;
 
-  function handleBlur() {
+  async function handleBlur() {
     const trimmed = nome.trim();
     if (!trimmed) {
       setErro("Nome não pode ficar vazio.");
@@ -68,10 +68,16 @@ function EtapaNode({
       return;
     }
     setErro(null);
-    if (trimmed !== etapa.nome) updateEtapa(etapa.id, { nome: trimmed });
+    if (trimmed !== etapa.nome) {
+      try {
+        await updateEtapa(etapa.id, { nome: trimmed });
+      } catch {
+        // erro já mostrado pelo store
+      }
+    }
   }
 
-  function handleCriarSub() {
+  async function handleCriarSub() {
     const trimmed = novoNome.trim();
     if (!trimmed) {
       setErroNovo("Nome não pode ficar vazio.");
@@ -81,12 +87,16 @@ function EtapaNode({
       setErroNovo("Já existe uma sub-etapa com esse nome aqui.");
       return;
     }
-    addEtapa(etapa.obraId, trimmed, etapa.id);
-    setNovoNome("");
-    setErroNovo(null);
-    setMostrarNovaSub(false);
-    setExpandido(true);
-    toast.success("Sub-etapa criada");
+    try {
+      await addEtapa(etapa.obraId, trimmed, etapa.id);
+      setNovoNome("");
+      setErroNovo(null);
+      setMostrarNovaSub(false);
+      setExpandido(true);
+      toast.success("Sub-etapa criada");
+    } catch {
+      // erro já mostrado pelo store
+    }
   }
 
   return (
@@ -213,7 +223,7 @@ export default function EtapasPage() {
 
   const etapasRaiz = etapas.filter((e) => !e.etapaPaiId).sort((a, b) => a.ordem - b.ordem);
 
-  function handleCriarRaiz() {
+  async function handleCriarRaiz() {
     const trimmed = nome.trim();
     if (!trimmed) {
       setErroNome("Nome não pode ficar vazio.");
@@ -223,10 +233,14 @@ export default function EtapasPage() {
       setErroNome("Já existe uma etapa com esse nome na raiz.");
       return;
     }
-    addEtapa(obraId, trimmed);
-    setNome("");
-    setErroNome(null);
-    toast.success("Etapa criada");
+    try {
+      await addEtapa(obraId, trimmed);
+      setNome("");
+      setErroNome(null);
+      toast.success("Etapa criada");
+    } catch {
+      // erro já mostrado pelo store
+    }
   }
 
   function abrirPredecessoras(etapa: Etapa) {
@@ -234,11 +248,15 @@ export default function EtapasPage() {
     setSelecionadas(new Set(etapa.predecessorasIds));
   }
 
-  function salvarPredecessoras() {
+  async function salvarPredecessoras() {
     if (!editandoPredecessoras) return;
-    updateEtapa(editandoPredecessoras.id, { predecessorasIds: Array.from(selecionadas) });
-    setEditandoPredecessoras(null);
-    toast.success("Predecessoras atualizadas");
+    try {
+      await updateEtapa(editandoPredecessoras.id, { predecessorasIds: Array.from(selecionadas) });
+      setEditandoPredecessoras(null);
+      toast.success("Predecessoras atualizadas");
+    } catch {
+      // erro já mostrado pelo store
+    }
   }
 
   function descreverExclusao(etapa: Etapa) {
@@ -363,9 +381,13 @@ export default function EtapasPage() {
           onOpenChange={(open) => !open && setEtapaParaExcluir(null)}
           title="Excluir etapa"
           description={descreverExclusao(etapaParaExcluir)}
-          onConfirm={() => {
-            removeEtapa(etapaParaExcluir.id);
-            toast.success("Etapa excluída");
+          onConfirm={async () => {
+            try {
+              await removeEtapa(etapaParaExcluir.id);
+              toast.success("Etapa excluída");
+            } catch {
+              // erro já mostrado pelo store
+            }
           }}
         />
       )}

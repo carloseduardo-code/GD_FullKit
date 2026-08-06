@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { toast } from "sonner";
+import { supabase } from "@/lib/supabase/client";
 import type {
   Apontamento,
   Etapa,
@@ -11,41 +12,88 @@ import type {
   TipoPergunta,
 } from "@/lib/types";
 import { calcularStatus } from "@/lib/status";
-import { SEED } from "@/lib/seed";
 
-function id(): string {
-  return crypto.randomUUID();
+const ETAPA_SELECT = "id, obraId:obra_id, etapaPaiId:etapa_pai_id, nome, ordem, predecessorasIds:predecessoras_ids";
+const SERVICO_SELECT =
+  "id, etapaId:etapa_id, nome, ordem, dataInicioPrevista:data_inicio_prevista, dataFimPrevista:data_fim_prevista";
+const PERGUNTA_SELECT = "id, servicoId:servico_id, texto, tipo, obrigatoria, ordem";
+const APONTAMENTO_SELECT = "id, servicoId:servico_id, respostas, fotos, observacoes, autor, criadoEm:criado_em";
+
+function normalizarEtapa(row: Etapa): Etapa {
+  return { ...row, etapaPaiId: row.etapaPaiId ?? undefined };
 }
 
-function nowIso(): string {
-  return new Date().toISOString();
+function normalizarServico(row: ServicoNotavel): ServicoNotavel {
+  return {
+    ...row,
+    dataInicioPrevista: row.dataInicioPrevista ?? undefined,
+    dataFimPrevista: row.dataFimPrevista ?? undefined,
+  };
+}
+
+function linhaEtapa(patch: Partial<Etapa>): Record<string, unknown> {
+  const linha: Record<string, unknown> = {};
+  if ("obraId" in patch) linha.obra_id = patch.obraId;
+  if ("etapaPaiId" in patch) linha.etapa_pai_id = patch.etapaPaiId ?? null;
+  if ("nome" in patch) linha.nome = patch.nome;
+  if ("ordem" in patch) linha.ordem = patch.ordem;
+  if ("predecessorasIds" in patch) linha.predecessoras_ids = patch.predecessorasIds;
+  return linha;
+}
+
+function linhaServico(patch: Partial<ServicoNotavel>): Record<string, unknown> {
+  const linha: Record<string, unknown> = {};
+  if ("etapaId" in patch) linha.etapa_id = patch.etapaId;
+  if ("nome" in patch) linha.nome = patch.nome;
+  if ("ordem" in patch) linha.ordem = patch.ordem;
+  if ("dataInicioPrevista" in patch) linha.data_inicio_prevista = patch.dataInicioPrevista ?? null;
+  if ("dataFimPrevista" in patch) linha.data_fim_prevista = patch.dataFimPrevista ?? null;
+  return linha;
+}
+
+function linhaPergunta(patch: Partial<Pergunta>): Record<string, unknown> {
+  const linha: Record<string, unknown> = {};
+  if ("servicoId" in patch) linha.servico_id = patch.servicoId;
+  if ("texto" in patch) linha.texto = patch.texto;
+  if ("tipo" in patch) linha.tipo = patch.tipo;
+  if ("obrigatoria" in patch) linha.obrigatoria = patch.obrigatoria;
+  if ("ordem" in patch) linha.ordem = patch.ordem;
+  return linha;
+}
+
+function falhaEscrita(mensagem: string): never {
+  toast.error(mensagem);
+  throw new Error(mensagem);
 }
 
 interface FullKitState {
+  carregado: boolean;
   obras: Obra[];
   etapas: Etapa[];
   servicos: ServicoNotavel[];
   perguntas: Pergunta[];
   apontamentos: Apontamento[];
 
-  addObra: (nome: string, endereco: string) => Obra;
-  updateObra: (id: string, patch: Partial<Omit<Obra, "id">>) => void;
-  removeObra: (id: string) => void;
+  carregarTudo: () => Promise<void>;
 
-  addEtapa: (obraId: string, nome: string, etapaPaiId?: string) => Etapa;
-  updateEtapa: (id: string, patch: Partial<Omit<Etapa, "id" | "obraId">>) => void;
-  removeEtapa: (id: string) => void;
-  reorderEtapa: (id: string, direcao: "subir" | "descer") => void;
+  addObra: (nome: string, endereco: string) => Promise<Obra>;
+  updateObra: (id: string, patch: Partial<Omit<Obra, "id">>) => Promise<void>;
+  removeObra: (id: string) => Promise<void>;
 
-  addServico: (etapaId: string, nome: string) => ServicoNotavel;
-  updateServico: (id: string, patch: Partial<Omit<ServicoNotavel, "id" | "etapaId">>) => void;
-  removeServico: (id: string) => void;
-  reorderServico: (id: string, direcao: "subir" | "descer") => void;
+  addEtapa: (obraId: string, nome: string, etapaPaiId?: string) => Promise<Etapa>;
+  updateEtapa: (id: string, patch: Partial<Omit<Etapa, "id" | "obraId">>) => Promise<void>;
+  removeEtapa: (id: string) => Promise<void>;
+  reorderEtapa: (id: string, direcao: "subir" | "descer") => Promise<void>;
 
-  addPergunta: (servicoId: string, texto: string, tipo: TipoPergunta, obrigatoria: boolean) => Pergunta;
-  updatePergunta: (id: string, patch: Partial<Omit<Pergunta, "id" | "servicoId">>) => void;
-  removePergunta: (id: string) => void;
-  reorderPergunta: (id: string, direcao: "subir" | "descer") => void;
+  addServico: (etapaId: string, nome: string) => Promise<ServicoNotavel>;
+  updateServico: (id: string, patch: Partial<Omit<ServicoNotavel, "id" | "etapaId">>) => Promise<void>;
+  removeServico: (id: string) => Promise<void>;
+  reorderServico: (id: string, direcao: "subir" | "descer") => Promise<void>;
+
+  addPergunta: (servicoId: string, texto: string, tipo: TipoPergunta, obrigatoria: boolean) => Promise<Pergunta>;
+  updatePergunta: (id: string, patch: Partial<Omit<Pergunta, "id" | "servicoId">>) => Promise<void>;
+  removePergunta: (id: string) => Promise<void>;
+  reorderPergunta: (id: string, direcao: "subir" | "descer") => Promise<void>;
 
   salvarApontamento: (input: {
     servicoId: string;
@@ -53,7 +101,7 @@ interface FullKitState {
     fotos: string[];
     observacoes: string;
     autor: string;
-  }) => Apontamento;
+  }) => Promise<Apontamento>;
 
   getUltimoApontamento: (servicoId: string) => Apontamento | undefined;
   getStatusServico: (servicoId: string) => StatusResultado;
@@ -77,194 +125,260 @@ function reorder<T extends { id: string; ordem: number }>(
   return sorted;
 }
 
-export const useFullKitStore = create<FullKitState>()(
-  persist(
-    (set, get) => ({
-      obras: SEED.obras,
-      etapas: SEED.etapas,
-      servicos: SEED.servicos,
-      perguntas: SEED.perguntas,
-      apontamentos: SEED.apontamentos,
+export const useFullKitStore = create<FullKitState>()((set, get) => ({
+  carregado: false,
+  obras: [],
+  etapas: [],
+  servicos: [],
+  perguntas: [],
+  apontamentos: [],
 
-      addObra: (nome, endereco) => {
-        const obra: Obra = { id: id(), nome, endereco };
-        set((s) => ({ obras: [...s.obras, obra] }));
-        return obra;
-      },
-      updateObra: (obraId, patch) =>
-        set((s) => ({
-          obras: s.obras.map((o) => (o.id === obraId ? { ...o, ...patch } : o)),
-        })),
-      removeObra: (obraId) =>
-        set((s) => {
-          const etapaIds = new Set(s.etapas.filter((e) => e.obraId === obraId).map((e) => e.id));
-          const servicoIds = new Set(s.servicos.filter((sv) => etapaIds.has(sv.etapaId)).map((sv) => sv.id));
-          return {
-            obras: s.obras.filter((o) => o.id !== obraId),
-            etapas: s.etapas.filter((e) => e.obraId !== obraId),
-            servicos: s.servicos.filter((sv) => !etapaIds.has(sv.etapaId)),
-            perguntas: s.perguntas.filter((p) => !servicoIds.has(p.servicoId)),
-            apontamentos: s.apontamentos.filter((a) => !servicoIds.has(a.servicoId)),
-          };
-        }),
+  carregarTudo: async () => {
+    const [obrasRes, etapasRes, servicosRes, perguntasRes, apontamentosRes] = await Promise.all([
+      supabase.from("obras").select("id, nome, endereco"),
+      supabase.from("etapas").select(ETAPA_SELECT),
+      supabase.from("servicos").select(SERVICO_SELECT),
+      supabase.from("perguntas").select(PERGUNTA_SELECT),
+      supabase.from("apontamentos").select(APONTAMENTO_SELECT),
+    ]);
 
-      addEtapa: (obraId, nome, etapaPaiId) => {
-        const irmas = get().etapas.filter((e) => e.obraId === obraId && e.etapaPaiId === etapaPaiId);
-        const ordem = irmas.length > 0 ? Math.max(...irmas.map((e) => e.ordem)) + 1 : 1;
-        const anterior = irmas.find((e) => e.ordem === ordem - 1);
-        const etapa: Etapa = {
-          id: id(),
-          obraId,
-          etapaPaiId,
-          nome,
-          ordem,
-          predecessorasIds: anterior ? [anterior.id] : [],
-        };
-        set((s) => ({ etapas: [...s.etapas, etapa] }));
-        return etapa;
-      },
-      updateEtapa: (etapaId, patch) =>
-        set((s) => ({
-          etapas: s.etapas.map((e) => (e.id === etapaId ? { ...e, ...patch } : e)),
-        })),
-      removeEtapa: (etapaId) =>
-        set((s) => {
-          const idsParaRemover = new Set<string>();
-          const coletar = (alvoId: string) => {
-            idsParaRemover.add(alvoId);
-            s.etapas.filter((e) => e.etapaPaiId === alvoId).forEach((e) => coletar(e.id));
-          };
-          coletar(etapaId);
-
-          const servicoIds = new Set(
-            s.servicos.filter((sv) => idsParaRemover.has(sv.etapaId)).map((sv) => sv.id)
-          );
-
-          return {
-            etapas: s.etapas
-              .filter((e) => !idsParaRemover.has(e.id))
-              .map((e) => ({
-                ...e,
-                predecessorasIds: e.predecessorasIds.filter((pid) => !idsParaRemover.has(pid)),
-              })),
-            servicos: s.servicos.filter((sv) => !idsParaRemover.has(sv.etapaId)),
-            perguntas: s.perguntas.filter((p) => !servicoIds.has(p.servicoId)),
-            apontamentos: s.apontamentos.filter((a) => !servicoIds.has(a.servicoId)),
-          };
-        }),
-      reorderEtapa: (etapaId, direcao) =>
-        set((s) => {
-          const etapa = s.etapas.find((e) => e.id === etapaId);
-          if (!etapa) return s;
-          const mesmoGrupo = (e: Etapa) => e.obraId === etapa.obraId && e.etapaPaiId === etapa.etapaPaiId;
-          const irmas = s.etapas.filter(mesmoGrupo);
-          const reordenadas = reorder(irmas, etapaId, direcao);
-          const outras = s.etapas.filter((e) => !mesmoGrupo(e));
-          return { etapas: [...outras, ...reordenadas] };
-        }),
-
-      addServico: (etapaId, nome) => {
-        const servicosDaEtapa = get().servicos.filter((sv) => sv.etapaId === etapaId);
-        const ordem =
-          servicosDaEtapa.length > 0 ? Math.max(...servicosDaEtapa.map((sv) => sv.ordem)) + 1 : 1;
-        const servico: ServicoNotavel = { id: id(), etapaId, nome, ordem };
-        set((s) => ({ servicos: [...s.servicos, servico] }));
-        return servico;
-      },
-      updateServico: (servicoId, patch) =>
-        set((s) => ({
-          servicos: s.servicos.map((sv) => (sv.id === servicoId ? { ...sv, ...patch } : sv)),
-        })),
-      removeServico: (servicoId) =>
-        set((s) => ({
-          servicos: s.servicos.filter((sv) => sv.id !== servicoId),
-          perguntas: s.perguntas.filter((p) => p.servicoId !== servicoId),
-          apontamentos: s.apontamentos.filter((a) => a.servicoId !== servicoId),
-        })),
-      reorderServico: (servicoId, direcao) =>
-        set((s) => {
-          const servico = s.servicos.find((sv) => sv.id === servicoId);
-          if (!servico) return s;
-          const daEtapa = s.servicos.filter((sv) => sv.etapaId === servico.etapaId);
-          const reordenados = reorder(daEtapa, servicoId, direcao);
-          const outros = s.servicos.filter((sv) => sv.etapaId !== servico.etapaId);
-          return { servicos: [...outros, ...reordenados] };
-        }),
-
-      addPergunta: (servicoId, texto, tipo, obrigatoria) => {
-        const perguntasDoServico = get().perguntas.filter((p) => p.servicoId === servicoId);
-        const ordem =
-          perguntasDoServico.length > 0 ? Math.max(...perguntasDoServico.map((p) => p.ordem)) + 1 : 1;
-        const pergunta: Pergunta = { id: id(), servicoId, texto, tipo, obrigatoria, ordem };
-        set((s) => ({ perguntas: [...s.perguntas, pergunta] }));
-        return pergunta;
-      },
-      updatePergunta: (perguntaId, patch) =>
-        set((s) => ({
-          perguntas: s.perguntas.map((p) => (p.id === perguntaId ? { ...p, ...patch } : p)),
-        })),
-      removePergunta: (perguntaId) =>
-        set((s) => ({ perguntas: s.perguntas.filter((p) => p.id !== perguntaId) })),
-      reorderPergunta: (perguntaId, direcao) =>
-        set((s) => {
-          const pergunta = s.perguntas.find((p) => p.id === perguntaId);
-          if (!pergunta) return s;
-          const doServico = s.perguntas.filter((p) => p.servicoId === pergunta.servicoId);
-          const reordenadas = reorder(doServico, perguntaId, direcao);
-          const outras = s.perguntas.filter((p) => p.servicoId !== pergunta.servicoId);
-          return { perguntas: [...outras, ...reordenadas] };
-        }),
-
-      salvarApontamento: ({ servicoId, respostas, fotos, observacoes, autor }) => {
-        const apontamento: Apontamento = {
-          id: id(),
-          servicoId,
-          respostas,
-          fotos,
-          observacoes,
-          autor,
-          criadoEm: nowIso(),
-        };
-        set((s) => ({ apontamentos: [...s.apontamentos, apontamento] }));
-        return apontamento;
-      },
-
-      getUltimoApontamento: (servicoId) => {
-        const doServico = get().apontamentos.filter((a) => a.servicoId === servicoId);
-        if (doServico.length === 0) return undefined;
-        return doServico.reduce((mais, atual) => (atual.criadoEm > mais.criadoEm ? atual : mais));
-      },
-
-      getStatusServico: (servicoId) => {
-        const perguntas = get().perguntas.filter((p) => p.servicoId === servicoId);
-        const ultimo = get().getUltimoApontamento(servicoId);
-        return calcularStatus(perguntas, ultimo);
-      },
-    }),
-    {
-      name: "fullkit-mock-store",
-      version: 3,
-      migrate: (persistedState, version) => {
-        const state = persistedState as {
-          etapas?: Array<Partial<Etapa> & { id: string }>;
-          apontamentos?: unknown;
-          elementos?: unknown;
-        };
-
-        if (version < 2) {
-          state.etapas = (state.etapas ?? []).map((e) => ({
-            ...e,
-            predecessorasIds: e.predecessorasIds ?? [],
-          }));
-        }
-
-        if (version < 3) {
-          delete state.elementos;
-          state.apontamentos = [];
-        }
-
-        return state;
-      },
+    const erro =
+      obrasRes.error || etapasRes.error || servicosRes.error || perguntasRes.error || apontamentosRes.error;
+    if (erro) {
+      toast.error("Não foi possível carregar os dados do Supabase. Confira se o schema.sql já foi executado.");
+      set({ carregado: true });
+      return;
     }
-  )
-);
+
+    set({
+      obras: (obrasRes.data ?? []) as Obra[],
+      etapas: ((etapasRes.data ?? []) as Etapa[]).map(normalizarEtapa),
+      servicos: ((servicosRes.data ?? []) as ServicoNotavel[]).map(normalizarServico),
+      perguntas: (perguntasRes.data ?? []) as Pergunta[],
+      apontamentos: (apontamentosRes.data ?? []) as Apontamento[],
+      carregado: true,
+    });
+  },
+
+  addObra: async (nome, endereco) => {
+    const { data, error } = await supabase.from("obras").insert({ nome, endereco }).select("id, nome, endereco").single();
+    if (error || !data) falhaEscrita("Não foi possível criar a obra.");
+    const obra = data as Obra;
+    set((s) => ({ obras: [...s.obras, obra] }));
+    return obra;
+  },
+  updateObra: async (obraId, patch) => {
+    const { error } = await supabase.from("obras").update(patch).eq("id", obraId);
+    if (error) falhaEscrita("Não foi possível atualizar a obra.");
+    set((s) => ({ obras: s.obras.map((o) => (o.id === obraId ? { ...o, ...patch } : o)) }));
+  },
+  removeObra: async (obraId) => {
+    const { error } = await supabase.from("obras").delete().eq("id", obraId);
+    if (error) falhaEscrita("Não foi possível excluir a obra.");
+    set((s) => {
+      const etapaIds = new Set(s.etapas.filter((e) => e.obraId === obraId).map((e) => e.id));
+      const servicoIds = new Set(s.servicos.filter((sv) => etapaIds.has(sv.etapaId)).map((sv) => sv.id));
+      return {
+        obras: s.obras.filter((o) => o.id !== obraId),
+        etapas: s.etapas.filter((e) => e.obraId !== obraId),
+        servicos: s.servicos.filter((sv) => !etapaIds.has(sv.etapaId)),
+        perguntas: s.perguntas.filter((p) => !servicoIds.has(p.servicoId)),
+        apontamentos: s.apontamentos.filter((a) => !servicoIds.has(a.servicoId)),
+      };
+    });
+  },
+
+  addEtapa: async (obraId, nome, etapaPaiId) => {
+    const irmas = get().etapas.filter((e) => e.obraId === obraId && e.etapaPaiId === etapaPaiId);
+    const ordem = irmas.length > 0 ? Math.max(...irmas.map((e) => e.ordem)) + 1 : 1;
+    const anterior = irmas.find((e) => e.ordem === ordem - 1);
+    const predecessorasIds = anterior ? [anterior.id] : [];
+
+    const { data, error } = await supabase
+      .from("etapas")
+      .insert({
+        obra_id: obraId,
+        etapa_pai_id: etapaPaiId ?? null,
+        nome,
+        ordem,
+        predecessoras_ids: predecessorasIds,
+      })
+      .select(ETAPA_SELECT)
+      .single();
+    if (error || !data) falhaEscrita("Não foi possível criar a etapa.");
+    const etapa = normalizarEtapa(data as Etapa);
+    set((s) => ({ etapas: [...s.etapas, etapa] }));
+    return etapa;
+  },
+  updateEtapa: async (etapaId, patch) => {
+    const { error } = await supabase.from("etapas").update(linhaEtapa(patch)).eq("id", etapaId);
+    if (error) falhaEscrita("Não foi possível atualizar a etapa.");
+    set((s) => ({
+      etapas: s.etapas.map((e) => (e.id === etapaId ? { ...e, ...patch } : e)),
+    }));
+  },
+  removeEtapa: async (etapaId) => {
+    const { error } = await supabase.from("etapas").delete().eq("id", etapaId);
+    if (error) falhaEscrita("Não foi possível excluir a etapa.");
+    set((s) => {
+      const idsParaRemover = new Set<string>();
+      const coletar = (alvoId: string) => {
+        idsParaRemover.add(alvoId);
+        s.etapas.filter((e) => e.etapaPaiId === alvoId).forEach((e) => coletar(e.id));
+      };
+      coletar(etapaId);
+
+      const servicoIds = new Set(
+        s.servicos.filter((sv) => idsParaRemover.has(sv.etapaId)).map((sv) => sv.id)
+      );
+
+      return {
+        etapas: s.etapas
+          .filter((e) => !idsParaRemover.has(e.id))
+          .map((e) => ({
+            ...e,
+            predecessorasIds: e.predecessorasIds.filter((pid) => !idsParaRemover.has(pid)),
+          })),
+        servicos: s.servicos.filter((sv) => !idsParaRemover.has(sv.etapaId)),
+        perguntas: s.perguntas.filter((p) => !servicoIds.has(p.servicoId)),
+        apontamentos: s.apontamentos.filter((a) => !servicoIds.has(a.servicoId)),
+      };
+    });
+  },
+  reorderEtapa: async (etapaId, direcao) => {
+    const atual = get();
+    const etapa = atual.etapas.find((e) => e.id === etapaId);
+    if (!etapa) return;
+    const mesmoGrupo = (e: Etapa) => e.obraId === etapa.obraId && e.etapaPaiId === etapa.etapaPaiId;
+    const irmas = atual.etapas.filter(mesmoGrupo);
+    const reordenadas = reorder(irmas, etapaId, direcao);
+    if (reordenadas === irmas) return;
+
+    const outras = atual.etapas.filter((e) => !mesmoGrupo(e));
+    set({ etapas: [...outras, ...reordenadas] });
+
+    const alteradas = reordenadas.filter((e) => irmas.find((i) => i.id === e.id)?.ordem !== e.ordem);
+    const { error } = await supabase.from("etapas").upsert(
+      alteradas.map((e) => ({ id: e.id, ordem: e.ordem }))
+    );
+    if (error) toast.error("Não foi possível salvar a nova ordem das etapas.");
+  },
+
+  addServico: async (etapaId, nome) => {
+    const servicosDaEtapa = get().servicos.filter((sv) => sv.etapaId === etapaId);
+    const ordem =
+      servicosDaEtapa.length > 0 ? Math.max(...servicosDaEtapa.map((sv) => sv.ordem)) + 1 : 1;
+
+    const { data, error } = await supabase
+      .from("servicos")
+      .insert({ etapa_id: etapaId, nome, ordem })
+      .select(SERVICO_SELECT)
+      .single();
+    if (error || !data) falhaEscrita("Não foi possível criar o serviço.");
+    const servico = normalizarServico(data as ServicoNotavel);
+    set((s) => ({ servicos: [...s.servicos, servico] }));
+    return servico;
+  },
+  updateServico: async (servicoId, patch) => {
+    const { error } = await supabase.from("servicos").update(linhaServico(patch)).eq("id", servicoId);
+    if (error) falhaEscrita("Não foi possível atualizar o serviço.");
+    set((s) => ({
+      servicos: s.servicos.map((sv) => (sv.id === servicoId ? { ...sv, ...patch } : sv)),
+    }));
+  },
+  removeServico: async (servicoId) => {
+    const { error } = await supabase.from("servicos").delete().eq("id", servicoId);
+    if (error) falhaEscrita("Não foi possível excluir o serviço.");
+    set((s) => ({
+      servicos: s.servicos.filter((sv) => sv.id !== servicoId),
+      perguntas: s.perguntas.filter((p) => p.servicoId !== servicoId),
+      apontamentos: s.apontamentos.filter((a) => a.servicoId !== servicoId),
+    }));
+  },
+  reorderServico: async (servicoId, direcao) => {
+    const atual = get();
+    const servico = atual.servicos.find((sv) => sv.id === servicoId);
+    if (!servico) return;
+    const daEtapa = atual.servicos.filter((sv) => sv.etapaId === servico.etapaId);
+    const reordenados = reorder(daEtapa, servicoId, direcao);
+    if (reordenados === daEtapa) return;
+
+    const outros = atual.servicos.filter((sv) => sv.etapaId !== servico.etapaId);
+    set({ servicos: [...outros, ...reordenados] });
+
+    const alterados = reordenados.filter((sv) => daEtapa.find((d) => d.id === sv.id)?.ordem !== sv.ordem);
+    const { error } = await supabase.from("servicos").upsert(
+      alterados.map((sv) => ({ id: sv.id, ordem: sv.ordem }))
+    );
+    if (error) toast.error("Não foi possível salvar a nova ordem dos serviços.");
+  },
+
+  addPergunta: async (servicoId, texto, tipo, obrigatoria) => {
+    const perguntasDoServico = get().perguntas.filter((p) => p.servicoId === servicoId);
+    const ordem =
+      perguntasDoServico.length > 0 ? Math.max(...perguntasDoServico.map((p) => p.ordem)) + 1 : 1;
+
+    const { data, error } = await supabase
+      .from("perguntas")
+      .insert({ servico_id: servicoId, texto, tipo, obrigatoria, ordem })
+      .select(PERGUNTA_SELECT)
+      .single();
+    if (error || !data) falhaEscrita("Não foi possível criar a pergunta.");
+    const pergunta = data as Pergunta;
+    set((s) => ({ perguntas: [...s.perguntas, pergunta] }));
+    return pergunta;
+  },
+  updatePergunta: async (perguntaId, patch) => {
+    const { error } = await supabase.from("perguntas").update(linhaPergunta(patch)).eq("id", perguntaId);
+    if (error) falhaEscrita("Não foi possível atualizar a pergunta.");
+    set((s) => ({
+      perguntas: s.perguntas.map((p) => (p.id === perguntaId ? { ...p, ...patch } : p)),
+    }));
+  },
+  removePergunta: async (perguntaId) => {
+    const { error } = await supabase.from("perguntas").delete().eq("id", perguntaId);
+    if (error) falhaEscrita("Não foi possível excluir a pergunta.");
+    set((s) => ({ perguntas: s.perguntas.filter((p) => p.id !== perguntaId) }));
+  },
+  reorderPergunta: async (perguntaId, direcao) => {
+    const atual = get();
+    const pergunta = atual.perguntas.find((p) => p.id === perguntaId);
+    if (!pergunta) return;
+    const doServico = atual.perguntas.filter((p) => p.servicoId === pergunta.servicoId);
+    const reordenadas = reorder(doServico, perguntaId, direcao);
+    if (reordenadas === doServico) return;
+
+    const outras = atual.perguntas.filter((p) => p.servicoId !== pergunta.servicoId);
+    set({ perguntas: [...outras, ...reordenadas] });
+
+    const alteradas = reordenadas.filter((p) => doServico.find((d) => d.id === p.id)?.ordem !== p.ordem);
+    const { error } = await supabase.from("perguntas").upsert(
+      alteradas.map((p) => ({ id: p.id, ordem: p.ordem }))
+    );
+    if (error) toast.error("Não foi possível salvar a nova ordem das perguntas.");
+  },
+
+  salvarApontamento: async ({ servicoId, respostas, fotos, observacoes, autor }) => {
+    const { data, error } = await supabase
+      .from("apontamentos")
+      .insert({ servico_id: servicoId, respostas, fotos, observacoes, autor })
+      .select(APONTAMENTO_SELECT)
+      .single();
+    if (error || !data) falhaEscrita("Não foi possível salvar o apontamento.");
+    const apontamento = data as Apontamento;
+    set((s) => ({ apontamentos: [...s.apontamentos, apontamento] }));
+    return apontamento;
+  },
+
+  getUltimoApontamento: (servicoId) => {
+    const doServico = get().apontamentos.filter((a) => a.servicoId === servicoId);
+    if (doServico.length === 0) return undefined;
+    return doServico.reduce((mais, atual) => (atual.criadoEm > mais.criadoEm ? atual : mais));
+  },
+
+  getStatusServico: (servicoId) => {
+    const perguntas = get().perguntas.filter((p) => p.servicoId === servicoId);
+    const ultimo = get().getUltimoApontamento(servicoId);
+    return calcularStatus(perguntas, ultimo);
+  },
+}));
