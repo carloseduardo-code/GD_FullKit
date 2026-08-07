@@ -12,6 +12,8 @@ import type {
   TipoPergunta,
 } from "@/lib/types";
 import { calcularStatus } from "@/lib/status";
+import { descendentes } from "@/lib/planejamento";
+import { nomeDuplicado } from "@/lib/utils";
 
 const ETAPA_SELECT = "id, obraId:obra_id, etapaPaiId:etapa_pai_id, nome, ordem, predecessorasIds:predecessoras_ids";
 const SERVICO_SELECT =
@@ -66,6 +68,161 @@ function falhaEscrita(mensagem: string): never {
   throw new Error(mensagem);
 }
 
+function nomeComSufixoCopia(nomeBase: string, existentes: string[]): string {
+  let candidato = `${nomeBase} (cópia)`;
+  let contador = 2;
+  while (nomeDuplicado(candidato, existentes)) {
+    candidato = `${nomeBase} (cópia ${contador})`;
+    contador++;
+  }
+  return candidato;
+}
+
+interface ClonarEstruturaResultado {
+  etapas: Etapa[];
+  servicos: ServicoNotavel[];
+  perguntas: Pergunta[];
+  etapaIdMap: Map<string, string>;
+}
+
+// Clona um conjunto de etapas (mais os serviços e perguntas dentro delas) para dentro de uma obra
+// destino. Usado tanto por "duplicar etapa" (etapas = a etapa + sua subárvore, mesma obra) quanto
+// por "duplicar obra" (etapas = a árvore inteira, obra nova). Os ids novos são gerados no cliente
+// (crypto.randomUUID) para não depender da ordem de retorno de um insert em lote — assim dá pra
+// montar os objetos locais direto, sem precisar reconsultar o Supabase.
+async function clonarEstrutura(params: {
+  etapas: Etapa[];
+  servicos: ServicoNotavel[];
+  perguntas: Pergunta[];
+  obraDestinoId?: string;
+  etapaPaiDestinoId?: string;
+  overridesTopo?: Map<string, { nome: string; ordem: number }>;
+}): Promise<ClonarEstruturaResultado> {
+  const { etapas, servicos, perguntas, obraDestinoId, etapaPaiDestinoId, overridesTopo } = params;
+
+  const idsNoConjunto = new Set(etapas.map((e) => e.id));
+  const etapaIdMap = new Map<string, string>();
+  etapas.forEach((e) => etapaIdMap.set(e.id, crypto.randomUUID()));
+
+  function camposClonados(e: Etapa) {
+    const override = overridesTopo?.get(e.id);
+    const pai = e.etapaPaiId;
+    const ehTopo = !pai || !idsNoConjunto.has(pai);
+    return {
+      etapaPaiId: ehTopo ? etapaPaiDestinoId : etapaIdMap.get(pai!),
+      nome: override?.nome ?? e.nome,
+      ordem: override?.ordem ?? e.ordem,
+    };
+  }
+
+  const novasEtapas: Etapa[] = etapas.map((e) => ({
+    id: etapaIdMap.get(e.id)!,
+    obraId: obraDestinoId ?? e.obraId,
+    predecessorasIds: [],
+    ...camposClonados(e),
+  }));
+
+  // Nível por nível: um filho só pode ser inserido depois que o pai já existe no banco.
+  let pendentes = [...etapas];
+  const jaInseridas = new Set<string>();
+  while (pendentes.length > 0) {
+    const prontas = pendentes.filter((e) => {
+      const pai = e.etapaPaiId;
+      const ehTopo = !pai || !idsNoConjunto.has(pai);
+      return ehTopo || jaInseridas.has(pai!);
+    });
+    if (prontas.length === 0) break;
+
+    const linhas = prontas.map((e) => {
+      const campos = camposClonados(e);
+      return {
+        id: etapaIdMap.get(e.id)!,
+        obra_id: obraDestinoId ?? e.obraId,
+        etapa_pai_id: campos.etapaPaiId ?? null,
+        nome: campos.nome,
+        ordem: campos.ordem,
+        predecessoras_ids: [] as string[],
+      };
+    });
+
+    const { error } = await supabase.from("etapas").insert(linhas);
+    if (error) {
+      toast.error("Não foi possível duplicar a estrutura de etapas.");
+      throw new Error("Falha ao duplicar etapas.");
+    }
+
+    prontas.forEach((e) => jaInseridas.add(e.id));
+    pendentes = pendentes.filter((e) => !jaInseridas.has(e.id));
+  }
+
+  const servicoIdMap = new Map<string, string>();
+  servicos.forEach((sv) => servicoIdMap.set(sv.id, crypto.randomUUID()));
+  const novosServicos: ServicoNotavel[] = servicos.map((sv) => ({
+    id: servicoIdMap.get(sv.id)!,
+    etapaId: etapaIdMap.get(sv.etapaId) ?? sv.etapaId,
+    nome: sv.nome,
+    ordem: sv.ordem,
+  }));
+
+  if (novosServicos.length > 0) {
+    const { error } = await supabase.from("servicos").insert(
+      novosServicos.map((sv) => ({ id: sv.id, etapa_id: sv.etapaId, nome: sv.nome, ordem: sv.ordem }))
+    );
+    if (error) {
+      toast.error("Não foi possível duplicar os serviços.");
+      throw new Error("Falha ao duplicar serviços.");
+    }
+  }
+
+  const novasPerguntas: Pergunta[] = perguntas.map((p) => ({
+    id: crypto.randomUUID(),
+    servicoId: servicoIdMap.get(p.servicoId)!,
+    texto: p.texto,
+    tipo: p.tipo,
+    obrigatoria: p.obrigatoria,
+    ordem: p.ordem,
+  }));
+
+  if (novasPerguntas.length > 0) {
+    const { error } = await supabase.from("perguntas").insert(
+      novasPerguntas.map((p) => ({
+        id: p.id,
+        servico_id: p.servicoId,
+        texto: p.texto,
+        tipo: p.tipo,
+        obrigatoria: p.obrigatoria,
+        ordem: p.ordem,
+      }))
+    );
+    if (error) {
+      toast.error("Não foi possível duplicar as perguntas.");
+      throw new Error("Falha ao duplicar perguntas.");
+    }
+  }
+
+  const upsertsPredecessoras = etapas
+    .map((e) => ({
+      id: etapaIdMap.get(e.id)!,
+      predecessoras_ids: e.predecessorasIds.map((pid) => etapaIdMap.get(pid)).filter((v): v is string => !!v),
+    }))
+    .filter((linha) => linha.predecessoras_ids.length > 0);
+
+  if (upsertsPredecessoras.length > 0) {
+    const { error } = await supabase.from("etapas").upsert(upsertsPredecessoras);
+    if (error) {
+      toast.error("Estrutura duplicada, mas não foi possível recriar os vínculos de predecessoras.");
+    } else {
+      const porId = new Map(upsertsPredecessoras.map((u) => [u.id, u.predecessoras_ids]));
+      novasEtapas.forEach((e) => {
+        const pred = porId.get(e.id);
+        if (pred) e.predecessorasIds = pred;
+      });
+    }
+  }
+
+  return { etapas: novasEtapas, servicos: novosServicos, perguntas: novasPerguntas, etapaIdMap };
+}
+
 interface FullKitState {
   carregado: boolean;
   obras: Obra[];
@@ -79,16 +236,19 @@ interface FullKitState {
   addObra: (nome: string, endereco: string) => Promise<Obra>;
   updateObra: (id: string, patch: Partial<Omit<Obra, "id">>) => Promise<void>;
   removeObra: (id: string) => Promise<void>;
+  duplicarObra: (id: string, novoNome: string) => Promise<Obra>;
 
   addEtapa: (obraId: string, nome: string, etapaPaiId?: string) => Promise<Etapa>;
   updateEtapa: (id: string, patch: Partial<Omit<Etapa, "id" | "obraId">>) => Promise<void>;
   removeEtapa: (id: string) => Promise<void>;
   reorderEtapa: (id: string, direcao: "subir" | "descer") => Promise<void>;
+  duplicarEtapa: (id: string) => Promise<Etapa>;
 
   addServico: (etapaId: string, nome: string) => Promise<ServicoNotavel>;
   updateServico: (id: string, patch: Partial<Omit<ServicoNotavel, "id" | "etapaId">>) => Promise<void>;
   removeServico: (id: string) => Promise<void>;
   reorderServico: (id: string, direcao: "subir" | "descer") => Promise<void>;
+  duplicarServico: (id: string) => Promise<ServicoNotavel>;
 
   addPergunta: (servicoId: string, texto: string, tipo: TipoPergunta, obrigatoria: boolean) => Promise<Pergunta>;
   updatePergunta: (id: string, patch: Partial<Omit<Pergunta, "id" | "servicoId">>) => Promise<void>;
@@ -187,6 +347,44 @@ export const useFullKitStore = create<FullKitState>()((set, get) => ({
       };
     });
   },
+  duplicarObra: async (obraId, novoNome) => {
+    const atual = get();
+    const original = atual.obras.find((o) => o.id === obraId);
+    if (!original) throw new Error("Obra não encontrada.");
+
+    const { data, error: erroObra } = await supabase
+      .from("obras")
+      .insert({ nome: novoNome, endereco: original.endereco })
+      .select("id, nome, endereco")
+      .single();
+    if (erroObra || !data) falhaEscrita("Não foi possível criar a obra duplicada.");
+    const novaObra = data as Obra;
+
+    const etapasOrigem = atual.etapas.filter((e) => e.obraId === obraId);
+    const etapaIdsOrigem = new Set(etapasOrigem.map((e) => e.id));
+    const servicosOrigem = atual.servicos.filter((sv) => etapaIdsOrigem.has(sv.etapaId));
+    const servicoIdsOrigem = new Set(servicosOrigem.map((sv) => sv.id));
+    const perguntasOrigem = atual.perguntas.filter((p) => servicoIdsOrigem.has(p.servicoId));
+
+    try {
+      const resultado = await clonarEstrutura({
+        etapas: etapasOrigem,
+        servicos: servicosOrigem,
+        perguntas: perguntasOrigem,
+        obraDestinoId: novaObra.id,
+      });
+      set((s) => ({
+        obras: [...s.obras, novaObra],
+        etapas: [...s.etapas, ...resultado.etapas],
+        servicos: [...s.servicos, ...resultado.servicos],
+        perguntas: [...s.perguntas, ...resultado.perguntas],
+      }));
+      return novaObra;
+    } catch (erro) {
+      await supabase.from("obras").delete().eq("id", novaObra.id);
+      throw erro;
+    }
+  },
 
   addEtapa: async (obraId, nome, etapaPaiId) => {
     const irmas = get().etapas.filter((e) => e.obraId === obraId && e.etapaPaiId === etapaPaiId);
@@ -263,6 +461,41 @@ export const useFullKitStore = create<FullKitState>()((set, get) => ({
     );
     if (error) toast.error("Não foi possível salvar a nova ordem das etapas.");
   },
+  duplicarEtapa: async (etapaId) => {
+    const atual = get();
+    const original = atual.etapas.find((e) => e.id === etapaId);
+    if (!original) throw new Error("Etapa não encontrada.");
+
+    const subtree = [original, ...descendentes(etapaId, atual.etapas)];
+    const subtreeIds = new Set(subtree.map((e) => e.id));
+    const servicosOrigem = atual.servicos.filter((sv) => subtreeIds.has(sv.etapaId));
+    const servicoIdsOrigem = new Set(servicosOrigem.map((sv) => sv.id));
+    const perguntasOrigem = atual.perguntas.filter((p) => servicoIdsOrigem.has(p.servicoId));
+
+    const irmaos = atual.etapas.filter(
+      (e) => e.obraId === original.obraId && e.etapaPaiId === original.etapaPaiId
+    );
+    const ordem = Math.max(...irmaos.map((e) => e.ordem)) + 1;
+    const nome = nomeComSufixoCopia(original.nome, irmaos.map((e) => e.nome));
+
+    const resultado = await clonarEstrutura({
+      etapas: subtree,
+      servicos: servicosOrigem,
+      perguntas: perguntasOrigem,
+      obraDestinoId: original.obraId,
+      etapaPaiDestinoId: original.etapaPaiId,
+      overridesTopo: new Map([[original.id, { nome, ordem }]]),
+    });
+
+    set((s) => ({
+      etapas: [...s.etapas, ...resultado.etapas],
+      servicos: [...s.servicos, ...resultado.servicos],
+      perguntas: [...s.perguntas, ...resultado.perguntas],
+    }));
+
+    const novoId = resultado.etapaIdMap.get(original.id)!;
+    return resultado.etapas.find((e) => e.id === novoId)!;
+  },
 
   addServico: async (etapaId, nome) => {
     const servicosDaEtapa = get().servicos.filter((sv) => sv.etapaId === etapaId);
@@ -311,6 +544,29 @@ export const useFullKitStore = create<FullKitState>()((set, get) => ({
       alterados.map((sv) => ({ id: sv.id, ordem: sv.ordem }))
     );
     if (error) toast.error("Não foi possível salvar a nova ordem dos serviços.");
+  },
+  duplicarServico: async (servicoId) => {
+    const atual = get();
+    const original = atual.servicos.find((sv) => sv.id === servicoId);
+    if (!original) throw new Error("Serviço não encontrado.");
+
+    const irmaos = atual.servicos.filter((sv) => sv.etapaId === original.etapaId);
+    const ordem = Math.max(...irmaos.map((sv) => sv.ordem)) + 1;
+    const nome = nomeComSufixoCopia(original.nome, irmaos.map((sv) => sv.nome));
+    const perguntasOrigem = atual.perguntas.filter((p) => p.servicoId === servicoId);
+
+    const resultado = await clonarEstrutura({
+      etapas: [],
+      servicos: [{ ...original, nome, ordem }],
+      perguntas: perguntasOrigem,
+    });
+
+    set((s) => ({
+      servicos: [...s.servicos, ...resultado.servicos],
+      perguntas: [...s.perguntas, ...resultado.perguntas],
+    }));
+
+    return resultado.servicos[0];
   },
 
   addPergunta: async (servicoId, texto, tipo, obrigatoria) => {

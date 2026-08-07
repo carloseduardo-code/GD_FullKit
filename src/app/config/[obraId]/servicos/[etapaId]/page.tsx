@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, ChevronUp, ListChecks, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, Copy, ListChecks, Loader2, Plus, Trash2 } from "lucide-react";
 import { useFullKitStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
 import { nomeDuplicado } from "@/lib/utils";
@@ -26,6 +26,7 @@ function ServicoRow({
   onMoveDown,
   onRename,
   onAskRemove,
+  onDuplicate,
   onChangeDataInicio,
   onChangeDataFim,
 }: {
@@ -39,11 +40,22 @@ function ServicoRow({
   onMoveDown: () => void;
   onRename: (nome: string) => void;
   onAskRemove: () => void;
+  onDuplicate: () => Promise<void>;
   onChangeDataInicio: (data: string) => void;
   onChangeDataFim: (data: string) => void;
 }) {
   const [nome, setNome] = useState(servico.nome);
   const [erro, setErro] = useState<string | null>(null);
+  const [duplicando, setDuplicando] = useState(false);
+
+  async function handleDuplicar() {
+    setDuplicando(true);
+    try {
+      await onDuplicate();
+    } finally {
+      setDuplicando(false);
+    }
+  }
 
   function handleBlur() {
     const trimmed = nome.trim();
@@ -82,6 +94,9 @@ function ServicoRow({
           FULL KIT
           <ChevronRight data-icon="inline-end" />
         </Link>
+        <Button variant="ghost" size="icon" onClick={handleDuplicar} disabled={duplicando} title="Duplicar">
+          {duplicando ? <Loader2 className="size-4 animate-spin" /> : <Copy className="size-4" />}
+        </Button>
         <Button
           variant="ghost"
           size="icon"
@@ -128,6 +143,7 @@ export default function ServicosPage() {
   const updateServico = useFullKitStore((s) => s.updateServico);
   const removeServico = useFullKitStore((s) => s.removeServico);
   const reorderServico = useFullKitStore((s) => s.reorderServico);
+  const duplicarServico = useFullKitStore((s) => s.duplicarServico);
 
   const [nome, setNome] = useState("");
   const [erroNome, setErroNome] = useState<string | null>(null);
@@ -207,6 +223,14 @@ export default function ServicosPage() {
               onMoveDown={() => reorderServico(servico.id, "descer")}
               onRename={(novoNome) => updateServico(servico.id, { nome: novoNome })}
               onAskRemove={() => setServicoParaExcluir(servico)}
+              onDuplicate={async () => {
+                try {
+                  await duplicarServico(servico.id);
+                  toast.success("Serviço duplicado");
+                } catch {
+                  // erro já mostrado pelo store
+                }
+              }}
               onChangeDataInicio={(data) => updateServico(servico.id, { dataInicioPrevista: data || undefined })}
               onChangeDataFim={(data) => updateServico(servico.id, { dataFimPrevista: data || undefined })}
             />

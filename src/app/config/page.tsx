@@ -2,8 +2,9 @@
 
 import { useState, type MouseEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Building2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Building2, Copy, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { useFullKitStore } from "@/lib/store";
 import { nomeDuplicado } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import type { Obra } from "@/lib/types";
 
 export default function ObrasPage() {
+  const router = useRouter();
   const obras = useFullKitStore((s) => s.obras);
   const etapas = useFullKitStore((s) => s.etapas);
   const servicos = useFullKitStore((s) => s.servicos);
@@ -30,6 +32,7 @@ export default function ObrasPage() {
   const addObra = useFullKitStore((s) => s.addObra);
   const updateObra = useFullKitStore((s) => s.updateObra);
   const removeObra = useFullKitStore((s) => s.removeObra);
+  const duplicarObra = useFullKitStore((s) => s.duplicarObra);
 
   const [nome, setNome] = useState("");
   const [endereco, setEndereco] = useState("");
@@ -41,6 +44,11 @@ export default function ObrasPage() {
   const [editErro, setEditErro] = useState<string | null>(null);
 
   const [obraParaExcluir, setObraParaExcluir] = useState<Obra | null>(null);
+
+  const [obraParaDuplicar, setObraParaDuplicar] = useState<Obra | null>(null);
+  const [nomeDuplicar, setNomeDuplicar] = useState("");
+  const [erroDuplicar, setErroDuplicar] = useState<string | null>(null);
+  const [duplicando, setDuplicando] = useState(false);
 
   async function handleCriar() {
     const trimmed = nome.trim();
@@ -98,6 +106,38 @@ export default function ObrasPage() {
     setObraParaExcluir(obra);
   }
 
+  function abrirDuplicacao(e: MouseEvent, obra: Obra) {
+    e.preventDefault();
+    e.stopPropagation();
+    setObraParaDuplicar(obra);
+    setNomeDuplicar(`${obra.nome} (cópia)`);
+    setErroDuplicar(null);
+  }
+
+  async function confirmarDuplicacao() {
+    if (!obraParaDuplicar) return;
+    const trimmed = nomeDuplicar.trim();
+    if (!trimmed) {
+      setErroDuplicar("Informe um nome para a obra nova.");
+      return;
+    }
+    if (nomeDuplicado(trimmed, obras.map((o) => o.nome))) {
+      setErroDuplicar("Já existe uma obra com esse nome.");
+      return;
+    }
+    setDuplicando(true);
+    try {
+      const novaObra = await duplicarObra(obraParaDuplicar.id, trimmed);
+      setObraParaDuplicar(null);
+      toast.success("Obra duplicada");
+      router.push(`/config/${novaObra.id}`);
+    } catch {
+      // erro já mostrado pelo store
+    } finally {
+      setDuplicando(false);
+    }
+  }
+
   function descreverExclusao(obra: Obra) {
     const etapaIds = new Set(etapas.filter((et) => et.obraId === obra.id).map((et) => et.id));
     const nEtapas = etapaIds.size;
@@ -140,6 +180,9 @@ export default function ObrasPage() {
                 <div className="flex gap-1 shrink-0">
                   <Button variant="ghost" size="icon-sm" onClick={(e) => abrirEdicao(e, obra)}>
                     <Pencil className="size-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon-sm" onClick={(e) => abrirDuplicacao(e, obra)} title="Duplicar">
+                    <Copy className="size-3.5" />
                   </Button>
                   <Button
                     variant="ghost"
@@ -208,6 +251,38 @@ export default function ObrasPage() {
               Cancelar
             </Button>
             <Button onClick={salvarEdicao}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={obraParaDuplicar !== null} onOpenChange={(open) => !open && setObraParaDuplicar(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Duplicar obra</DialogTitle>
+            <DialogDescription>
+              Cria uma obra nova com a mesma árvore de etapas, serviços e checklists de{" "}
+              {obraParaDuplicar ? `"${obraParaDuplicar.nome}"` : ""}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label className="text-sm font-normal">Nome da obra nova</Label>
+            <Input
+              value={nomeDuplicar}
+              onChange={(e) => {
+                setNomeDuplicar(e.target.value);
+                setErroDuplicar(null);
+              }}
+            />
+            {erroDuplicar && <p className="text-xs text-red-600">{erroDuplicar}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setObraParaDuplicar(null)} disabled={duplicando}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmarDuplicacao} disabled={duplicando}>
+              {duplicando && <Loader2 data-icon="inline-start" className="animate-spin" />}
+              Duplicar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

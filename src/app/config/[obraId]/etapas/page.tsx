@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, ChevronUp, Link2, ListChecks, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, Copy, Link2, ListChecks, Loader2, Plus, Trash2 } from "lucide-react";
 import { useFullKitStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
 import { nomeDuplicado } from "@/lib/utils";
@@ -41,6 +41,7 @@ function EtapaNode({
   const updateEtapa = useFullKitStore((s) => s.updateEtapa);
   const addEtapa = useFullKitStore((s) => s.addEtapa);
   const reorderEtapa = useFullKitStore((s) => s.reorderEtapa);
+  const duplicarEtapa = useFullKitStore((s) => s.duplicarEtapa);
 
   const [nome, setNome] = useState(etapa.nome);
   const [erro, setErro] = useState<string | null>(null);
@@ -48,6 +49,7 @@ function EtapaNode({
   const [mostrarNovaSub, setMostrarNovaSub] = useState(false);
   const [novoNome, setNovoNome] = useState("");
   const [erroNovo, setErroNovo] = useState<string | null>(null);
+  const [duplicando, setDuplicando] = useState(false);
 
   const irmas = todasEtapas
     .filter((e) => e.etapaPaiId === etapa.etapaPaiId && e.obraId === etapa.obraId)
@@ -74,6 +76,18 @@ function EtapaNode({
       } catch {
         // erro já mostrado pelo store
       }
+    }
+  }
+
+  async function handleDuplicar() {
+    setDuplicando(true);
+    try {
+      await duplicarEtapa(etapa.id);
+      toast.success("Etapa duplicada");
+    } catch {
+      // erro já mostrado pelo store
+    } finally {
+      setDuplicando(false);
     }
   }
 
@@ -151,6 +165,9 @@ function EtapaNode({
               Serviços
             </Link>
           ) : null}
+          <Button variant="ghost" size="icon" onClick={handleDuplicar} disabled={duplicando} title="Duplicar">
+            {duplicando ? <Loader2 className="size-4 animate-spin" /> : <Copy className="size-4" />}
+          </Button>
           <Button
             variant="ghost"
             size="icon"
