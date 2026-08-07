@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { UserMenu } from "@/components/user-menu";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 
 export function AppHeader({ section, compact = false }: { section?: string; compact?: boolean }) {
@@ -30,7 +31,10 @@ export function AppHeader({ section, compact = false }: { section?: string; comp
             <span className="text-sm text-muted-foreground">{section}</span>
           </>
         )}
-        <UserMenu />
+        <div className="ml-auto flex items-center gap-2">
+          <ThemeToggle />
+          <UserMenu />
+        </div>
       </div>
     </header>
   );

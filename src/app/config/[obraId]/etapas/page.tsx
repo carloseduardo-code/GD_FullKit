@@ -171,13 +171,13 @@ function EtapaNode({
           <Button
             variant="ghost"
             size="icon"
-            className="text-muted-foreground hover:text-red-600"
+            className="text-muted-foreground hover:text-destructive"
             onClick={() => onAskRemove(etapa)}
           >
             <Trash2 className="size-4" />
           </Button>
         </div>
-        {erro && <p className="text-xs text-red-600 pl-9 pt-1">{erro}</p>}
+        {erro && <p className="text-xs text-destructive pl-9 pt-1">{erro}</p>}
 
         {mostrarNovaSub && (
           <div className="flex gap-2 pt-2 pl-9">
@@ -192,7 +192,7 @@ function EtapaNode({
                 onKeyDown={(e) => e.key === "Enter" && handleCriarSub()}
                 autoFocus
               />
-              {erroNovo && <p className="text-xs text-red-600">{erroNovo}</p>}
+              {erroNovo && <p className="text-xs text-destructive">{erroNovo}</p>}
             </div>
             <Button size="sm" onClick={handleCriarSub} disabled={!novoNome.trim()}>
               Adicionar
@@ -344,7 +344,7 @@ export default function EtapasPage() {
                 }}
                 onKeyDown={(e) => e.key === "Enter" && handleCriarRaiz()}
               />
-              {erroNome && <p className="text-xs text-red-600">{erroNome}</p>}
+              {erroNome && <p className="text-xs text-destructive">{erroNome}</p>}
             </div>
             <Button onClick={handleCriarRaiz} disabled={!nome.trim()}>
               <Plus data-icon="inline-start" />

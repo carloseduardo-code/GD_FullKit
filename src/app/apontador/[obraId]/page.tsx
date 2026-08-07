@@ -41,7 +41,9 @@ export default function SelecionarEtapaRaizPage() {
             <Link key={etapa.id} href={`/apontador/${obraId}/etapa/${etapa.id}`}>
               <Card className="transition-colors active:bg-accent">
                 <CardHeader className="flex-row items-center gap-3 space-y-0">
-                  <ListTree className="size-5 text-primary shrink-0" />
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-tint">
+                    <ListTree className="size-4 text-primary-tint-foreground" />
+                  </span>
                   <div className="flex-1">
                     <CardTitle className="text-base">{etapa.nome}</CardTitle>
                     <CardDescription>{progresso.percentual}% concluído</CardDescription>

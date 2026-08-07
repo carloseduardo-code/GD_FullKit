@@ -82,7 +82,7 @@ export default function LoginPage() {
                   onChange={(e) => setSenha(e.target.value)}
                 />
               </div>
-              {erro && <p className="text-xs text-red-600">{erro}</p>}
+              {erro && <p className="text-xs text-destructive">{erro}</p>}
               <Button type="submit" className="w-full justify-center" disabled={carregando}>
                 {carregando && <Loader2 data-icon="inline-start" className="animate-spin" />}
                 Entrar

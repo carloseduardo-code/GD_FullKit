@@ -33,10 +33,10 @@ export default function ServicoGestaoPage() {
   });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <Link
         href={`/gestao/${obraId}/etapa/${servico.etapaId}`}
-        className="flex items-center gap-1 text-sm text-muted-foreground"
+        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="size-4" />
         Voltar
@@ -44,8 +44,8 @@ export default function ServicoGestaoPage() {
 
       <div className="space-y-1">
         <p className="text-xs text-muted-foreground">{caminho.map((e) => e.nome).join(" › ")}</p>
-        <h1 className="text-2xl font-semibold tracking-tight">{servico.nome}</h1>
-        <p className="text-muted-foreground">{obra.nome}</p>
+        <h1 className="text-xl font-semibold tracking-tight">{servico.nome}</h1>
+        <p className="text-sm text-muted-foreground">{obra.nome}</p>
         {(servico.dataInicioPrevista || servico.dataFimPrevista) && (
           <p className="text-sm text-muted-foreground">
             Previsto: {servico.dataInicioPrevista ?? "—"} até {servico.dataFimPrevista ?? "—"}

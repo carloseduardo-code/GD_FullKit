@@ -100,13 +100,13 @@ function ServicoRow({
         <Button
           variant="ghost"
           size="icon"
-          className="text-muted-foreground hover:text-red-600"
+          className="text-muted-foreground hover:text-destructive"
           onClick={onAskRemove}
         >
           <Trash2 className="size-4" />
         </Button>
       </div>
-      {erro && <p className="text-xs text-red-600 pt-1 pl-9">{erro}</p>}
+      {erro && <p className="text-xs text-destructive pt-1 pl-9">{erro}</p>}
       <div className="flex flex-wrap items-center gap-3 pl-9 pt-2">
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
           Início previsto
@@ -247,7 +247,7 @@ export default function ServicosPage() {
                 }}
                 onKeyDown={(e) => e.key === "Enter" && handleCriar()}
               />
-              {erroNome && <p className="text-xs text-red-600">{erroNome}</p>}
+              {erroNome && <p className="text-xs text-destructive">{erroNome}</p>}
             </div>
             <Button onClick={handleCriar} disabled={!nome.trim()}>
               <Plus data-icon="inline-start" />

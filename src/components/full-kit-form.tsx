@@ -152,7 +152,7 @@ export function FullKitForm({
         <div key={p.id} className="space-y-2">
           <Label className="text-sm font-normal leading-snug">
             {p.texto}
-            {p.obrigatoria && <span className="text-red-600 ml-1">*</span>}
+            {p.obrigatoria && <span className="text-destructive ml-1">*</span>}
           </Label>
 
           {p.tipo === "boolean" && (
@@ -168,7 +168,7 @@ export function FullKitForm({
               <Button
                 type="button"
                 size="sm"
-                variant={respostas[p.id] === "nao" ? "default" : "outline"}
+                variant={respostas[p.id] === "nao" ? "destructive" : "outline"}
                 onClick={() => onChangeResposta?.(p.id, "nao")}
               >
                 Não

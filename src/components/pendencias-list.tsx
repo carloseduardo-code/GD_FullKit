@@ -9,7 +9,7 @@ export function PendenciasList({ pendencias }: { pendencias: Pendencia[] }) {
       <p className="text-sm font-medium text-muted-foreground">Pendências:</p>
       <ul className="space-y-1.5">
         {pendencias.map((p) => (
-          <li key={p.perguntaId} className="flex items-start gap-2 text-sm text-red-700 dark:text-red-400">
+          <li key={p.perguntaId} className="flex items-start gap-2 text-sm text-destructive">
             <XCircle className="size-4 mt-0.5 shrink-0" />
             <span>{p.texto}</span>
           </li>

@@ -21,7 +21,7 @@ export default function Home() {
       <AppHeader />
       <main className="flex flex-1 flex-col items-center justify-center gap-10 bg-gradient-to-b from-accent/30 via-background to-background p-6">
         <div className="text-center space-y-3">
-          <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">FULL KIT</h1>
+          <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">FULL KIT</h1>
           <p className="mx-auto max-w-lg text-lg text-muted-foreground">
             Gestão da prontidão operacional da obra.
           </p>
@@ -32,8 +32,8 @@ export default function Home() {
             <Link href="/config">
               <Card className="h-full transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md cursor-pointer">
                 <CardHeader className="space-y-2">
-                  <span className="flex size-10 items-center justify-center rounded-full bg-primary/10">
-                    <Settings2 className="size-5 text-primary" />
+                  <span className="flex size-10 items-center justify-center rounded-full bg-primary-tint">
+                    <Settings2 className="size-5 text-primary-tint-foreground" />
                   </span>
                   <CardTitle>Administrador</CardTitle>
                   <CardDescription>
@@ -48,8 +48,8 @@ export default function Home() {
             <Link href="/apontador">
               <Card className="h-full transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md cursor-pointer">
                 <CardHeader className="space-y-2">
-                  <span className="flex size-10 items-center justify-center rounded-full bg-primary/10">
-                    <ClipboardList className="size-5 text-primary" />
+                  <span className="flex size-10 items-center justify-center rounded-full bg-primary-tint">
+                    <ClipboardList className="size-5 text-primary-tint-foreground" />
                   </span>
                   <CardTitle>Apontador</CardTitle>
                   <CardDescription>
@@ -63,8 +63,8 @@ export default function Home() {
           <Link href="/gestao">
             <Card className="h-full transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md cursor-pointer">
               <CardHeader className="space-y-2">
-                <span className="flex size-10 items-center justify-center rounded-full bg-primary/10">
-                  <LayoutDashboard className="size-5 text-primary" />
+                <span className="flex size-10 items-center justify-center rounded-full bg-primary-tint">
+                  <LayoutDashboard className="size-5 text-primary-tint-foreground" />
                 </span>
                 <CardTitle>Gestão / Consulta</CardTitle>
                 <CardDescription>
@@ -78,8 +78,8 @@ export default function Home() {
             <Link href="/usuarios">
               <Card className="h-full transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md cursor-pointer">
                 <CardHeader className="space-y-2">
-                  <span className="flex size-10 items-center justify-center rounded-full bg-primary/10">
-                    <Users className="size-5 text-primary" />
+                  <span className="flex size-10 items-center justify-center rounded-full bg-primary-tint">
+                    <Users className="size-5 text-primary-tint-foreground" />
                   </span>
                   <CardTitle>Usuários</CardTitle>
                   <CardDescription>Criar e acompanhar acessos de Administrador e Apontador.</CardDescription>

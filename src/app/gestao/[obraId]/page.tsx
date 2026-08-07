@@ -77,7 +77,7 @@ export default function PainelGestorPage() {
 
       <div className="flex flex-wrap gap-2.5">
         <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs font-medium">
-          <span className="size-1.5 rounded-full bg-emerald-500" />
+          <span className="size-1.5 rounded-full bg-primary" />
           {nLiberadas} liberada{nLiberadas === 1 ? "" : "s"}
         </span>
         <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs font-medium">
@@ -85,18 +85,18 @@ export default function PainelGestorPage() {
           {nBloqueadas} bloqueada{nBloqueadas === 1 ? "" : "s"}
         </span>
         {totalPendencias > 0 && (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50/50 px-3 py-1.5 text-xs font-medium text-red-700 dark:border-red-900 dark:bg-red-950/20 dark:text-red-300">
-            <span className="size-1.5 rounded-full bg-red-500" />
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-destructive-tint-border bg-destructive-tint px-3 py-1.5 text-xs font-medium text-destructive-tint-foreground">
+            <span className="size-1.5 rounded-full bg-destructive" />
             {totalPendencias} pendência{totalPendencias === 1 ? "" : "s"}
           </span>
         )}
       </div>
 
       {gargalos.length > 0 && (
-        <Card className="border-red-200 bg-red-50/50 dark:border-red-900 dark:bg-red-950/20">
+        <Card className="border-destructive-tint-border bg-destructive-tint">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <AlertTriangle className="size-4 text-red-600" />
+              <AlertTriangle className="size-4 text-destructive" />
               Atenção
             </CardTitle>
             <CardDescription>Etapas que precisam de ação agora.</CardDescription>
@@ -141,7 +141,7 @@ export default function PainelGestorPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <CardTitle className="text-base">{etapa.nome}</CardTitle>
                         {liberada ? (
-                          <Badge className="bg-emerald-600 text-white">Liberada</Badge>
+                          <Badge className="bg-primary text-primary-foreground">Liberada</Badge>
                         ) : (
                           <Badge variant="secondary">Bloqueada</Badge>
                         )}
@@ -164,8 +164,8 @@ export default function PainelGestorPage() {
                                 <span
                                   className={cn(
                                     "size-1.5 shrink-0 rounded-full",
-                                    status === "pronto" && "bg-emerald-500",
-                                    status === "bloqueado" && "bg-red-500",
+                                    status === "pronto" && "bg-primary",
+                                    status === "bloqueado" && "bg-destructive",
                                     status === "nao_iniciado" && "bg-muted-foreground/40"
                                   )}
                                 />

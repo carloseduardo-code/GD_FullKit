@@ -92,7 +92,7 @@ export default function ContaPage() {
       </Link>
 
       <div className="flex items-center gap-3">
-        <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-medium text-primary-foreground">
+        <span className="flex size-13 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
           {iniciais}
         </span>
         <div>

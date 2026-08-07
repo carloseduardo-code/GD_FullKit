@@ -8,8 +8,19 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --font-heading: var(--font-sans);
+  --color-primary-tint: var(--primary-tint);
+  --color-primary-tint-foreground: var(--primary-tint-foreground);
+  --color-primary-tint-border: var(--primary-tint-border);
+  --color-destructive-tint: var(--destructive-tint);
+  --color-destructive-tint-foreground: var(--destructive-tint-foreground);
+  --color-destructive-tint-border: var(--destructive-tint-border);
+  --color-surface-2: var(--surface-2);
+  --color-surface-hover: var(--surface-hover);
+  --color-border-strong: var(--border-strong);
+  --shadow-card: var(--shadow-card-value);
+  --shadow-pop: var(--shadow-pop-value);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -81,6 +92,18 @@
   --sidebar-accent-foreground: oklch(0.32 0.09 154);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.47 0.11 154 / 0.5);
+
+  --primary-tint: oklch(0.955 0.025 154);
+  --primary-tint-foreground: oklch(0.32 0.09 154);
+  --primary-tint-border: oklch(0.85 0.05 154);
+  --destructive-tint: oklch(0.96 0.03 27);
+  --destructive-tint-foreground: oklch(0.5 0.19 27);
+  --destructive-tint-border: oklch(0.87 0.07 27);
+  --surface-2: oklch(0.97 0 0);
+  --surface-hover: oklch(0.94 0 0);
+  --border-strong: oklch(0.83 0 0);
+  --shadow-card-value: 0 1px 2px rgba(15, 15, 15, 0.05), 0 1px 1px rgba(15, 15, 15, 0.03);
+  --shadow-pop-value: 0 16px 36px rgba(15, 15, 15, 0.12), 0 4px 10px rgba(15, 15, 15, 0.06);
 }
 
 .dark {
@@ -115,6 +138,18 @@
   --sidebar-accent-foreground: oklch(0.9 0.06 154);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.6 0.13 154 / 0.6);
+
+  --primary-tint: oklch(0.28 0.045 154);
+  --primary-tint-foreground: oklch(0.82 0.08 154);
+  --primary-tint-border: oklch(0.36 0.06 154);
+  --destructive-tint: oklch(0.29 0.07 25);
+  --destructive-tint-foreground: oklch(0.82 0.1 25);
+  --destructive-tint-border: oklch(0.4 0.1 25);
+  --surface-2: oklch(0.25 0 0);
+  --surface-hover: oklch(0.28 0 0);
+  --border-strong: oklch(1 0 0 / 16%);
+  --shadow-card-value: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-pop-value: 0 16px 40px rgba(0, 0, 0, 0.55);
 }
 
 @layer base {

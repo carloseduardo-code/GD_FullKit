@@ -80,7 +80,7 @@ export function PerguntaEditor({
         </div>
       </div>
 
-      <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-red-600" onClick={onRemove}>
+      <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={onRemove}>
         <Trash2 className="size-4" />
       </Button>
     </div>

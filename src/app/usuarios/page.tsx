@@ -9,8 +9,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
+
+function iniciaisDe(nome: string): string {
+  return (
+    nome
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((parte) => parte[0]?.toUpperCase())
+      .join("") || "?"
+  );
+}
 
 interface Usuario {
   id: string;
@@ -117,20 +128,25 @@ export default function UsuariosPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Papel</Label>
-              <Select value={papel} onValueChange={(v) => setPapel(v as PapelCriavel)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue>{(v: PapelCriavel) => PAPEIS_CRIAVEIS.find((p) => p.value === v)?.label ?? v}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {PAPEIS_CRIAVEIS.map((p) => (
-                    <SelectItem key={p.value} value={p.value}>
-                      {p.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="inline-flex gap-1 rounded-lg bg-surface-2 p-1">
+                {PAPEIS_CRIAVEIS.map((p) => (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => setPapel(p.value)}
+                    className={cn(
+                      "h-7 rounded-md px-3 text-xs font-semibold transition-colors",
+                      papel === p.value
+                        ? "bg-card text-foreground shadow-card"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            {erro && <p className="text-xs text-red-600">{erro}</p>}
+            {erro && <p className="text-xs text-destructive">{erro}</p>}
             <Button type="submit" disabled={criando}>
               {criando ? <Loader2 data-icon="inline-start" className="animate-spin" /> : <UserPlus data-icon="inline-start" />}
               Criar usuário
@@ -161,7 +177,14 @@ export default function UsuariosPage() {
               <TableBody>
                 {usuarios.map((u) => (
                   <TableRow key={u.id}>
-                    <TableCell className="font-medium">{u.nome}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary-tint text-[11px] font-bold text-primary-tint-foreground">
+                          {iniciaisDe(u.nome)}
+                        </span>
+                        {u.nome}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-muted-foreground">{u.username}</TableCell>
                     <TableCell>
                       <Badge variant="secondary">{ROLE_LABEL[u.role]}</Badge>

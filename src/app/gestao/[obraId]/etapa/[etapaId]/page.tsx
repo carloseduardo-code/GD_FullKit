@@ -64,8 +64,8 @@ export default function EtapaGestaoPage() {
               </p>
             )}
             <div className="flex items-center gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                <ListTree className="size-5 text-primary" />
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-tint">
+                <ListTree className="size-5 text-primary-tint-foreground" />
               </div>
               <div>
                 <h1 className="text-xl font-semibold tracking-tight">{etapa.nome}</h1>
@@ -74,7 +74,7 @@ export default function EtapaGestaoPage() {
             </div>
           </div>
           {liberada ? (
-            <Badge className="bg-emerald-600 text-white">Liberada</Badge>
+            <Badge className="bg-primary text-primary-foreground">Liberada</Badge>
           ) : (
             <Badge variant="secondary">Bloqueada</Badge>
           )}
@@ -121,13 +121,13 @@ export default function EtapaGestaoPage() {
           <Card>
             <CardHeader>
               <CardDescription>Concluídas</CardDescription>
-              <CardTitle className="text-2xl text-emerald-600">{progresso.pronto}</CardTitle>
+              <CardTitle className="text-2xl text-primary">{progresso.pronto}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader>
               <CardDescription>Pendências</CardDescription>
-              <CardTitle className="text-2xl text-red-600">{progresso.pendencias}</CardTitle>
+              <CardTitle className="text-2xl text-destructive">{progresso.pendencias}</CardTitle>
             </CardHeader>
           </Card>
         </div>
@@ -148,7 +148,7 @@ export default function EtapaGestaoPage() {
                         <div className="flex flex-wrap items-center gap-2">
                           <CardTitle className="text-sm font-medium">{filha.nome}</CardTitle>
                           {liberadaFilha ? (
-                            <Badge className="bg-emerald-600 text-white text-xs">Liberada</Badge>
+                            <Badge className="bg-primary text-primary-foreground text-xs">Liberada</Badge>
                           ) : (
                             <Badge variant="secondary" className="text-xs">Bloqueada</Badge>
                           )}

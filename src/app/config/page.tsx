@@ -173,7 +173,9 @@ export default function ObrasPage() {
             <Card className="h-full transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md cursor-pointer">
               <CardHeader className="flex-row items-start justify-between space-y-0">
                 <div className="space-y-1.5">
-                  <Building2 className="size-5 text-primary" />
+                  <span className="flex size-9 items-center justify-center rounded-full bg-primary-tint">
+                    <Building2 className="size-4 text-primary-tint-foreground" />
+                  </span>
                   <CardTitle>{obra.nome}</CardTitle>
                   <CardDescription>{obra.endereco || "Sem endereço cadastrado"}</CardDescription>
                 </div>
@@ -187,7 +189,7 @@ export default function ObrasPage() {
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    className="text-muted-foreground hover:text-red-600"
+                    className="text-muted-foreground hover:text-destructive"
                     onClick={(e) => abrirExclusao(e, obra)}
                   >
                     <Trash2 className="size-3.5" />
@@ -213,7 +215,7 @@ export default function ObrasPage() {
                 setErroNome(null);
               }}
             />
-            {erroNome && <p className="text-xs text-red-600">{erroNome}</p>}
+            {erroNome && <p className="text-xs text-destructive">{erroNome}</p>}
           </div>
           <Input placeholder="Endereço" value={endereco} onChange={(e) => setEndereco(e.target.value)} />
           <Button onClick={handleCriar} disabled={!nome.trim()}>
@@ -239,7 +241,7 @@ export default function ObrasPage() {
                   setEditErro(null);
                 }}
               />
-              {editErro && <p className="text-xs text-red-600">{editErro}</p>}
+              {editErro && <p className="text-xs text-destructive">{editErro}</p>}
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm font-normal">Endereço</Label>
@@ -273,7 +275,7 @@ export default function ObrasPage() {
                 setErroDuplicar(null);
               }}
             />
-            {erroDuplicar && <p className="text-xs text-red-600">{erroDuplicar}</p>}
+            {erroDuplicar && <p className="text-xs text-destructive">{erroDuplicar}</p>}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setObraParaDuplicar(null)} disabled={duplicando}>

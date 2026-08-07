@@ -23,7 +23,9 @@ export default function GestaoObrasPage() {
           <Link key={obra.id} href={`/gestao/${obra.id}`}>
             <Card className="h-full transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md cursor-pointer">
               <CardHeader className="space-y-1.5">
-                <Building2 className="size-5 text-primary" />
+                <span className="flex size-9 items-center justify-center rounded-full bg-primary-tint">
+                  <Building2 className="size-4 text-primary-tint-foreground" />
+                </span>
                 <CardTitle>{obra.nome}</CardTitle>
                 <CardDescription>{obra.endereco || "Sem endereço cadastrado"}</CardDescription>
               </CardHeader>

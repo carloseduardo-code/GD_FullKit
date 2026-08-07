@@ -20,12 +20,10 @@ export function UserMenu() {
 
   if (!userId) {
     return (
-      <div className="ml-auto">
-        <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/login" />}>
-          <LogIn data-icon="inline-start" />
-          Entrar
-        </Button>
-      </div>
+      <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/login" />}>
+        <LogIn data-icon="inline-start" />
+        Entrar
+      </Button>
     );
   }
 
@@ -38,7 +36,7 @@ export function UserMenu() {
       .join("") || "?";
 
   return (
-    <div className="ml-auto flex items-center gap-1">
+    <div className="flex items-center gap-1">
       {profile?.role === "god" && (
         <Button variant="ghost" size="icon-sm" title="Usuários" nativeButton={false} render={<Link href="/usuarios" />}>
           <Users className="size-4" />

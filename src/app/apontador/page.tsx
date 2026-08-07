@@ -20,7 +20,9 @@ export default function SelecionarObraPage() {
           <Link key={obra.id} href={`/apontador/${obra.id}`}>
             <Card className="transition-colors active:bg-accent">
               <CardHeader className="flex-row items-center gap-3 space-y-0">
-                <Building2 className="size-5 text-primary shrink-0" />
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-tint">
+                  <Building2 className="size-4 text-primary-tint-foreground" />
+                </span>
                 <div className="flex-1">
                   <CardTitle className="text-base">{obra.nome}</CardTitle>
                   <CardDescription>{obra.endereco}</CardDescription>
