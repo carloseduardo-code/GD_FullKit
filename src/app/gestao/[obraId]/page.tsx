@@ -34,13 +34,13 @@ export default function PainelGestorPage() {
     progressoPorEtapaId.set(etapa.id, progressoEtapa(etapa.id, etapas, servicos, getStatusServico));
   });
 
-  let prontoTotal = 0;
+  let concluidaTotal = 0;
   let totalGeral = 0;
   progressoPorEtapaId.forEach((p) => {
-    prontoTotal += p.pronto;
+    concluidaTotal += p.concluida;
     totalGeral += p.total;
   });
-  const percentualGeral = totalGeral > 0 ? Math.round((prontoTotal / totalGeral) * 100) : 0;
+  const percentualGeral = totalGeral > 0 ? Math.round((concluidaTotal / totalGeral) * 100) : 0;
 
   const etapasComStatus = etapasRaiz.map((etapa) => {
     const progresso = progressoPorEtapaId.get(etapa.id)!;
@@ -68,9 +68,9 @@ export default function PainelGestorPage() {
         <div className="flex items-center gap-3 rounded-2xl border bg-card px-4 py-2.5 shadow-sm">
           <span className="text-3xl font-semibold tabular-nums text-primary">{percentualGeral}%</span>
           <span className="text-xs leading-tight text-muted-foreground">
-            prontidão
+            avanço
             <br />
-            geral
+            físico
           </span>
         </div>
       </div>
@@ -155,6 +155,7 @@ export default function PainelGestorPage() {
                       {servicosDaEtapa.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5 pt-0.5">
                           {servicosDaEtapa.map((servico) => {
+                            const concluida = !!servico.concluidoEm;
                             const status = getStatusServico(servico.id).status;
                             return (
                               <span
@@ -164,9 +165,10 @@ export default function PainelGestorPage() {
                                 <span
                                   className={cn(
                                     "size-1.5 shrink-0 rounded-full",
-                                    status === "pronto" && "bg-primary",
-                                    status === "bloqueado" && "bg-destructive",
-                                    status === "nao_iniciado" && "bg-muted-foreground/40"
+                                    concluida && "bg-primary",
+                                    !concluida && status === "liberado" && "bg-primary/40",
+                                    !concluida && status === "nao_liberado" && "bg-destructive",
+                                    !concluida && status === "nao_iniciado" && "bg-muted-foreground/40"
                                   )}
                                 />
                                 {servico.nome}

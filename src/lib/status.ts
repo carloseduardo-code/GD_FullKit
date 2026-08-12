@@ -18,6 +18,9 @@ function respostaAtende(pergunta: Pergunta, resposta: Resposta | undefined, foto
   return true;
 }
 
+// Calcula apenas os três estados do Full Kit (Não Iniciado / Liberado / Não Liberado).
+// A conclusão da atividade é um evento separado (ver ServicoNotavel.concluidoEm) e nunca
+// entra nessa conta: não existe ação manual capaz de alterar esses três status.
 export function calcularStatus(
   perguntas: Pergunta[],
   apontamento: Apontamento | undefined
@@ -41,7 +44,7 @@ export function calcularStatus(
     .map((p) => ({ perguntaId: p.id, texto: p.texto }));
 
   return {
-    status: pendencias.length === 0 ? "pronto" : "bloqueado",
+    status: pendencias.length === 0 ? "liberado" : "nao_liberado",
     pendencias,
   };
 }

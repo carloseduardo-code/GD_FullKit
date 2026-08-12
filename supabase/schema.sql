@@ -27,8 +27,13 @@ create table if not exists servicos (
   ordem integer not null,
   data_inicio_prevista date,
   data_fim_prevista date,
+  concluido_em timestamptz,
   created_at timestamptz not null default now()
 );
+
+-- Migração: se a tabela servicos já existia sem a coluna (schema rodado antes da Fase 1.1,
+-- status "Concluída"), adiciona a coluna sem perder dados.
+alter table servicos add column if not exists concluido_em timestamptz;
 
 create table if not exists perguntas (
   id uuid primary key default gen_random_uuid(),

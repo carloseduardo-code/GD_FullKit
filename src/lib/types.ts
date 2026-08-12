@@ -22,6 +22,7 @@ export interface ServicoNotavel {
   ordem: number;
   dataInicioPrevista?: string;
   dataFimPrevista?: string;
+  concluidoEm?: string;
 }
 
 export interface Pergunta {
@@ -50,7 +51,7 @@ export interface Apontamento {
   criadoEm: string;
 }
 
-export type StatusServico = "pronto" | "bloqueado" | "nao_iniciado";
+export type StatusServico = "liberado" | "nao_liberado" | "nao_iniciado";
 
 export interface Pendencia {
   perguntaId: string;

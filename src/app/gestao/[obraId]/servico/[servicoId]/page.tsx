@@ -1,15 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { toast } from "sonner";
+import { ChevronLeft, RotateCcw } from "lucide-react";
 import { useFullKitStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
 import { caminhoEtapa } from "@/lib/planejamento";
 import { formatarDataHora } from "@/lib/utils";
-import { StatusBadge } from "@/components/status-badge";
+import { ConcluidaBadge, StatusBadge } from "@/components/status-badge";
 import { PendenciasList } from "@/components/pendencias-list";
 import { FullKitForm } from "@/components/full-kit-form";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import type { RespostaBooleana } from "@/lib/types";
 
@@ -21,6 +25,9 @@ export default function ServicoGestaoPage() {
   const perguntas = useFullKitStore(useShallow((s) => s.perguntas.filter((p) => p.servicoId === servicoId)));
   const getStatusServico = useFullKitStore((s) => s.getStatusServico);
   const getUltimoApontamento = useFullKitStore((s) => s.getUltimoApontamento);
+  const resetFullKit = useFullKitStore((s) => s.resetFullKit);
+
+  const [confirmResetAberto, setConfirmResetAberto] = useState(false);
 
   if (!obra || !servico) return notFound();
 
@@ -31,6 +38,15 @@ export default function ServicoGestaoPage() {
   ultimo?.respostas.forEach((r) => {
     respostas[r.perguntaId] = r.valor;
   });
+
+  async function handleResetar() {
+    try {
+      await resetFullKit(servicoId);
+      toast.success("Full Kit limpo. Serviço voltou para Não Iniciada.");
+    } catch {
+      // erro já mostrado pelo store
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -55,11 +71,25 @@ export default function ServicoGestaoPage() {
 
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
-          <StatusBadge status={resultado.status} />
-          {ultimo && (
-            <p className="text-xs text-muted-foreground">
-              Atualizado por {ultimo.autor} em {formatarDataHora(ultimo.criadoEm)}
-            </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge status={resultado.status} />
+            {servico.concluidoEm && <ConcluidaBadge />}
+            {ultimo && (
+              <p className="text-xs text-muted-foreground">
+                Atualizado por {ultimo.autor} em {formatarDataHora(ultimo.criadoEm)}
+              </p>
+            )}
+          </div>
+          {(resultado.status !== "nao_iniciado" || servico.concluidoEm) && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-muted-foreground hover:text-destructive"
+              onClick={() => setConfirmResetAberto(true)}
+            >
+              <RotateCcw data-icon="inline-start" className="size-3.5" />
+              Resetar Full Kit
+            </Button>
           )}
         </CardHeader>
         <CardContent className="space-y-4">
@@ -68,7 +98,7 @@ export default function ServicoGestaoPage() {
           ) : (
             <>
               <FullKitForm perguntas={perguntas} mode="consulta" respostas={respostas} fotos={ultimo.fotos} />
-              {resultado.status === "bloqueado" && <PendenciasList pendencias={resultado.pendencias} />}
+              {resultado.status === "nao_liberado" && <PendenciasList pendencias={resultado.pendencias} />}
               {ultimo.observacoes && (
                 <div className="space-y-1">
                   <p className="text-xs font-medium text-muted-foreground">Observações</p>
@@ -79,6 +109,15 @@ export default function ServicoGestaoPage() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={confirmResetAberto}
+        onOpenChange={setConfirmResetAberto}
+        title="Resetar Full Kit"
+        description="Isso apaga todas as respostas já registradas para este serviço e o devolve para o estado Não Iniciada. Use quando o Full Kit foi preenchido incorretamente e precisa ser refeito do zero."
+        confirmLabel="Resetar"
+        onConfirm={handleResetar}
+      />
     </div>
   );
 }
