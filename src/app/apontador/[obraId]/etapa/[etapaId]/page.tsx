@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, ListTree } from "lucide-react";
 import { useFullKitStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
 import { caminhoEtapa, progressoEtapa } from "@/lib/planejamento";
-import { StatusBadge } from "@/components/status-badge";
+import { ConcluidaBadge, StatusBadge } from "@/components/status-badge";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 export default function EtapaApontadorPage() {
@@ -24,7 +24,9 @@ export default function EtapaApontadorPage() {
   const voltarHref = paiId ? `/apontador/${obraId}/etapa/${paiId}` : `/apontador/${obraId}`;
 
   const filhas = etapasDaObra.filter((e) => e.etapaPaiId === etapaId).sort((a, b) => a.ordem - b.ordem);
-  const servicosDiretos = servicos.filter((sv) => sv.etapaId === etapaId).sort((a, b) => a.ordem - b.ordem);
+  const servicosDiretos = servicos
+    .filter((sv) => sv.etapaId === etapaId)
+    .sort((a, b) => Number(!!a.concluidoEm) - Number(!!b.concluidoEm) || a.ordem - b.ordem);
 
   return (
     <div className="space-y-5">
@@ -74,7 +76,10 @@ export default function EtapaApontadorPage() {
                   <CardHeader className="flex-row items-center gap-3 space-y-0 py-3">
                     <div className="flex-1 space-y-1.5">
                       <CardTitle className="text-sm font-medium">{servico.nome}</CardTitle>
-                      <StatusBadge status={resultado.status} />
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <StatusBadge status={resultado.status} />
+                        {servico.concluidoEm && <ConcluidaBadge />}
+                      </div>
                     </div>
                     <ChevronRight className="size-4 text-muted-foreground shrink-0" />
                   </CardHeader>

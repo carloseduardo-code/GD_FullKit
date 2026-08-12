@@ -26,8 +26,9 @@ export function caminhoEtapa(etapaId: string, todasEtapas: Etapa[]): Etapa[] {
 }
 
 export interface ProgressoEtapa {
-  pronto: number;
-  emAndamento: number;
+  concluida: number;
+  liberado: number;
+  naoLiberado: number;
   naoIniciado: number;
   pendencias: number;
   total: number;
@@ -42,27 +43,37 @@ export function progressoEtapa(
 ): ProgressoEtapa {
   const servicos = servicosDoSubtree(etapaId, todasEtapas, todosServicos);
 
-  let pronto = 0;
-  let emAndamento = 0;
+  let concluida = 0;
+  let liberado = 0;
+  let naoLiberado = 0;
   let naoIniciado = 0;
   let pendencias = 0;
 
   servicos.forEach((servico) => {
+    // Conclusão é um evento separado do status do Full Kit: uma vez concluída, a
+    // atividade sai da conta de pendências e não volta a ser Não Iniciado/Liberado/
+    // Não Liberado, mesmo que o Full Kit dela ainda esteja registrado.
+    if (servico.concluidoEm) {
+      concluida++;
+      return;
+    }
     const resultado = getStatusServico(servico.id);
-    if (resultado.status === "pronto") {
-      pronto++;
-    } else if (resultado.status === "bloqueado") {
-      emAndamento++;
+    if (resultado.status === "liberado") {
+      liberado++;
+    } else if (resultado.status === "nao_liberado") {
+      naoLiberado++;
       pendencias += resultado.pendencias.length;
     } else {
       naoIniciado++;
     }
   });
 
-  const total = pronto + emAndamento + naoIniciado;
-  const percentual = total > 0 ? Math.round((pronto / total) * 100) : 0;
+  const total = concluida + liberado + naoLiberado + naoIniciado;
+  // Avanço físico: só o que está de fato Concluído conta aqui. "Liberado" significa
+  // que o Full Kit foi atendido, não que o serviço já foi executado.
+  const percentual = total > 0 ? Math.round((concluida / total) * 100) : 0;
 
-  return { pronto, emAndamento, naoIniciado, pendencias, total, percentual };
+  return { concluida, liberado, naoLiberado, naoIniciado, pendencias, total, percentual };
 }
 
 export interface JanelaDatas {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,12 @@ export function PerguntaEditor({
   isFirst,
   isLast,
 }: PerguntaEditorProps) {
+  const [texto, setTexto] = useState(pergunta.texto);
+
+  function handleBlurTexto() {
+    if (texto !== pergunta.texto) onUpdate({ texto });
+  }
+
   return (
     <div className="flex items-start gap-2 rounded-md border p-3">
       <div className="flex flex-col gap-0.5 pt-1">
@@ -52,8 +59,9 @@ export function PerguntaEditor({
 
       <div className="flex-1 space-y-2">
         <Input
-          value={pergunta.texto}
-          onChange={(e) => onUpdate({ texto: e.target.value })}
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          onBlur={handleBlurTexto}
           placeholder="Texto da pergunta"
         />
         <div className="flex flex-wrap items-center gap-4">

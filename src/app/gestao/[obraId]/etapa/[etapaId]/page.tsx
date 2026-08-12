@@ -15,7 +15,7 @@ import {
   sucessorasDe,
   type ProgressoEtapa,
 } from "@/lib/planejamento";
-import { StatusBadge } from "@/components/status-badge";
+import { ConcluidaBadge, StatusBadge } from "@/components/status-badge";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -45,7 +45,9 @@ export default function EtapaGestaoPage() {
   const sucessoras = sucessorasDe(etapaId, etapasDaObra);
 
   const filhas = etapasDaObra.filter((e) => e.etapaPaiId === etapaId).sort((a, b) => a.ordem - b.ordem);
-  const servicosDiretos = servicos.filter((sv) => sv.etapaId === etapaId).sort((a, b) => a.ordem - b.ordem);
+  const servicosDiretos = servicos
+    .filter((sv) => sv.etapaId === etapaId)
+    .sort((a, b) => Number(!!a.concluidoEm) - Number(!!b.concluidoEm) || a.ordem - b.ordem);
   const temDetalhesExtras = janela.inicio || janela.fim || (!liberada && pendentes.length > 0) || sucessoras.length > 0;
 
   return (
@@ -108,20 +110,20 @@ export default function EtapaGestaoPage() {
         <div className="grid gap-4 sm:grid-cols-4">
           <Card>
             <CardHeader>
-              <CardDescription>Concluído</CardDescription>
+              <CardDescription>Avanço físico</CardDescription>
               <CardTitle className="text-2xl">{progresso.percentual}%</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader>
               <CardDescription>Em andamento</CardDescription>
-              <CardTitle className="text-2xl">{progresso.emAndamento}</CardTitle>
+              <CardTitle className="text-2xl">{progresso.liberado}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader>
               <CardDescription>Concluídas</CardDescription>
-              <CardTitle className="text-2xl text-primary">{progresso.pronto}</CardTitle>
+              <CardTitle className="text-2xl text-primary">{progresso.concluida}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
@@ -177,7 +179,10 @@ export default function EtapaGestaoPage() {
                     <CardHeader className="flex-row items-center gap-3 space-y-0 py-3">
                       <div className="flex-1 space-y-1">
                         <CardTitle className="text-sm font-medium">{servico.nome}</CardTitle>
-                        <StatusBadge status={resultado.status} />
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <StatusBadge status={resultado.status} />
+                          {servico.concluidoEm && <ConcluidaBadge />}
+                        </div>
                       </div>
                       <ChevronRight className="size-4 text-muted-foreground shrink-0" />
                     </CardHeader>

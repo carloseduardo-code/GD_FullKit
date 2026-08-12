@@ -3,14 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { notFound, useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ChevronLeft } from "lucide-react";
+import { CheckCircle2, ChevronLeft, RotateCcw, Undo2 } from "lucide-react";
 import { useFullKitStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
 import { calcularStatus } from "@/lib/status";
 import { caminhoEtapa } from "@/lib/planejamento";
 import { formatarDataHora } from "@/lib/utils";
 import { FullKitForm } from "@/components/full-kit-form";
-import { StatusBadge } from "@/components/status-badge";
+import { ConcluidaBadge, StatusBadge } from "@/components/status-badge";
 import { PendenciasList } from "@/components/pendencias-list";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,10 @@ export default function ResponderFullKitPage() {
   const perguntas = useFullKitStore(useShallow((s) => s.perguntas.filter((p) => p.servicoId === servicoId)));
   const ultimoApontamento = useFullKitStore((s) => s.getUltimoApontamento(servicoId));
   const salvarApontamento = useFullKitStore((s) => s.salvarApontamento);
+  const getStatusServico = useFullKitStore((s) => s.getStatusServico);
+  const marcarConcluido = useFullKitStore((s) => s.marcarConcluido);
+  const desmarcarConcluido = useFullKitStore((s) => s.desmarcarConcluido);
+  const resetFullKit = useFullKitStore((s) => s.resetFullKit);
 
   const respostasIniciais = useMemo(() => {
     const map: Record<string, RespostaBooleana | string | number | null> = {};
@@ -41,6 +45,8 @@ export default function ResponderFullKitPage() {
   const [observacoes, setObservacoes] = useState(ultimoApontamento?.observacoes ?? "");
   const [resultadoSalvo, setResultadoSalvo] = useState<ReturnType<typeof calcularStatus> | null>(null);
   const [confirmSairAberto, setConfirmSairAberto] = useState(false);
+  const [confirmResetAberto, setConfirmResetAberto] = useState(false);
+  const [processandoConclusao, setProcessandoConclusao] = useState(false);
 
   const [baseline, setBaseline] = useState(() =>
     JSON.stringify({ respostas: respostasIniciais, fotos: ultimoApontamento?.fotos ?? [], observacoes: ultimoApontamento?.observacoes ?? "" })
@@ -62,6 +68,7 @@ export default function ResponderFullKitPage() {
   const caminho = caminhoEtapa(servico.etapaId, etapasDaObra);
   const voltarHref = `/apontador/${obraId}/etapa/${servico.etapaId}`;
   const perguntasOrdenadas = [...perguntas].sort((a, b) => a.ordem - b.ordem);
+  const statusAtual = getStatusServico(servicoId);
 
   function handleVoltar() {
     if (isDirty) {
@@ -105,6 +112,45 @@ export default function ResponderFullKitPage() {
     toast.success("Apontamento salvo");
   }
 
+  async function handleMarcarConcluido() {
+    setProcessandoConclusao(true);
+    try {
+      await marcarConcluido(servicoId);
+      toast.success("Serviço concluído. Avanço físico atualizado.");
+      router.push(voltarHref);
+    } catch {
+      // erro já mostrado pelo store
+    } finally {
+      setProcessandoConclusao(false);
+    }
+  }
+
+  async function handleDesmarcarConcluido() {
+    setProcessandoConclusao(true);
+    try {
+      await desmarcarConcluido(servicoId);
+      toast.success("Conclusão desfeita");
+    } catch {
+      // erro já mostrado pelo store
+    } finally {
+      setProcessandoConclusao(false);
+    }
+  }
+
+  async function handleResetar() {
+    try {
+      await resetFullKit(servicoId);
+      setRespostas({});
+      setFotos([]);
+      setObservacoes("");
+      setBaseline(JSON.stringify({ respostas: {}, fotos: [], observacoes: "" }));
+      setResultadoSalvo(null);
+      toast.success("Full Kit limpo. Serviço voltou para Não Iniciada.");
+    } catch {
+      // erro já mostrado pelo store
+    }
+  }
+
   return (
     <div className="space-y-6">
       <button
@@ -116,20 +162,47 @@ export default function ResponderFullKitPage() {
         Voltar
       </button>
 
-      <div>
+      <div className="space-y-2">
         <p className="text-xs text-muted-foreground">{caminho.map((e) => e.nome).join(" › ")}</p>
         <h1 className="text-xl font-semibold tracking-tight">{servico.nome}</h1>
         {ultimoApontamento && (
-          <p className="text-xs text-muted-foreground pt-1">
+          <p className="text-xs text-muted-foreground">
             Atualizado por {ultimoApontamento.autor} em {formatarDataHora(ultimoApontamento.criadoEm)}
           </p>
         )}
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <StatusBadge status={statusAtual.status} />
+          {servico.concluidoEm && <ConcluidaBadge />}
+          {statusAtual.status === "liberado" && !servico.concluidoEm && (
+            <Button size="sm" variant="outline" disabled={processandoConclusao} onClick={handleMarcarConcluido}>
+              <CheckCircle2 data-icon="inline-start" className="size-3.5" />
+              Marcar como concluída
+            </Button>
+          )}
+          {servico.concluidoEm && (
+            <Button size="sm" variant="outline" disabled={processandoConclusao} onClick={handleDesmarcarConcluido}>
+              <Undo2 data-icon="inline-start" className="size-3.5" />
+              Desfazer conclusão
+            </Button>
+          )}
+          {(statusAtual.status !== "nao_iniciado" || servico.concluidoEm) && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-muted-foreground hover:text-destructive"
+              onClick={() => setConfirmResetAberto(true)}
+            >
+              <RotateCcw data-icon="inline-start" className="size-3.5" />
+              Resetar Full Kit
+            </Button>
+          )}
+        </div>
       </div>
 
       {resultadoSalvo ? (
         <div className="space-y-4 rounded-lg border p-4">
           <StatusBadge status={resultadoSalvo.status} />
-          {resultadoSalvo.status === "bloqueado" ? (
+          {resultadoSalvo.status === "nao_liberado" ? (
             <PendenciasList pendencias={resultadoSalvo.pendencias} />
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -140,7 +213,7 @@ export default function ResponderFullKitPage() {
             <Button variant="outline" onClick={() => setResultadoSalvo(null)}>
               Editar novamente
             </Button>
-            <Button onClick={() => router.push(voltarHref)}>Concluir</Button>
+            <Button onClick={() => router.push(voltarHref)}>Voltar</Button>
           </div>
         </div>
       ) : (
@@ -179,6 +252,15 @@ export default function ResponderFullKitPage() {
         description="Você preencheu o checklist mas ainda não salvou. Se sair agora, as respostas serão perdidas."
         confirmLabel="Sair sem salvar"
         onConfirm={() => router.push(voltarHref)}
+      />
+
+      <ConfirmDialog
+        open={confirmResetAberto}
+        onOpenChange={setConfirmResetAberto}
+        title="Resetar Full Kit"
+        description="Isso apaga todas as respostas já registradas para este serviço e o devolve para o estado Não Iniciada. Use quando o Full Kit foi preenchido incorretamente e precisa ser refeito do zero."
+        confirmLabel="Resetar"
+        onConfirm={handleResetar}
       />
     </div>
   );

@@ -17,7 +17,7 @@ import { nomeDuplicado } from "@/lib/utils";
 
 const ETAPA_SELECT = "id, obraId:obra_id, etapaPaiId:etapa_pai_id, nome, ordem, predecessorasIds:predecessoras_ids";
 const SERVICO_SELECT =
-  "id, etapaId:etapa_id, nome, ordem, dataInicioPrevista:data_inicio_prevista, dataFimPrevista:data_fim_prevista";
+  "id, etapaId:etapa_id, nome, ordem, dataInicioPrevista:data_inicio_prevista, dataFimPrevista:data_fim_prevista, concluidoEm:concluido_em";
 const PERGUNTA_SELECT = "id, servicoId:servico_id, texto, tipo, obrigatoria, ordem";
 const APONTAMENTO_SELECT = "id, servicoId:servico_id, respostas, fotos, observacoes, autor, criadoEm:criado_em";
 
@@ -30,6 +30,7 @@ function normalizarServico(row: ServicoNotavel): ServicoNotavel {
     ...row,
     dataInicioPrevista: row.dataInicioPrevista ?? undefined,
     dataFimPrevista: row.dataFimPrevista ?? undefined,
+    concluidoEm: row.concluidoEm ?? undefined,
   };
 }
 
@@ -50,6 +51,7 @@ function linhaServico(patch: Partial<ServicoNotavel>): Record<string, unknown> {
   if ("ordem" in patch) linha.ordem = patch.ordem;
   if ("dataInicioPrevista" in patch) linha.data_inicio_prevista = patch.dataInicioPrevista ?? null;
   if ("dataFimPrevista" in patch) linha.data_fim_prevista = patch.dataFimPrevista ?? null;
+  if ("concluidoEm" in patch) linha.concluido_em = patch.concluidoEm ?? null;
   return linha;
 }
 
@@ -249,6 +251,9 @@ interface FullKitState {
   removeServico: (id: string) => Promise<void>;
   reorderServico: (id: string, direcao: "subir" | "descer") => Promise<void>;
   duplicarServico: (id: string) => Promise<ServicoNotavel>;
+  marcarConcluido: (id: string) => Promise<void>;
+  desmarcarConcluido: (id: string) => Promise<void>;
+  resetFullKit: (id: string) => Promise<void>;
 
   addPergunta: (servicoId: string, texto: string, tipo: TipoPergunta, obrigatoria: boolean) => Promise<Pergunta>;
   updatePergunta: (id: string, patch: Partial<Omit<Pergunta, "id" | "servicoId">>) => Promise<void>;
@@ -277,12 +282,12 @@ function reorder<T extends { id: string; ordem: number }>(
   if (index === -1) return items;
   const swapWith = direcao === "subir" ? index - 1 : index + 1;
   if (swapWith < 0 || swapWith >= sorted.length) return items;
-  const a = sorted[index];
-  const b = sorted[swapWith];
-  const ordemA = a.ordem;
-  a.ordem = b.ordem;
-  b.ordem = ordemA;
-  return sorted;
+  const resultado = [...sorted];
+  const ordemA = resultado[index].ordem;
+  const ordemB = resultado[swapWith].ordem;
+  resultado[index] = { ...resultado[index], ordem: ordemB };
+  resultado[swapWith] = { ...resultado[swapWith], ordem: ordemA };
+  return resultado;
 }
 
 export const useFullKitStore = create<FullKitState>()((set, get) => ({
@@ -567,6 +572,30 @@ export const useFullKitStore = create<FullKitState>()((set, get) => ({
     }));
 
     return resultado.servicos[0];
+  },
+  marcarConcluido: async (servicoId) => {
+    await get().updateServico(servicoId, { concluidoEm: new Date().toISOString() });
+  },
+  desmarcarConcluido: async (servicoId) => {
+    await get().updateServico(servicoId, { concluidoEm: undefined });
+  },
+  resetFullKit: async (servicoId) => {
+    const { error: erroApontamentos } = await supabase
+      .from("apontamentos")
+      .delete()
+      .eq("servico_id", servicoId);
+    if (erroApontamentos) falhaEscrita("Não foi possível limpar as respostas do Full Kit.");
+
+    const { error: erroServico } = await supabase
+      .from("servicos")
+      .update({ concluido_em: null })
+      .eq("id", servicoId);
+    if (erroServico) falhaEscrita("Não foi possível limpar as respostas do Full Kit.");
+
+    set((s) => ({
+      apontamentos: s.apontamentos.filter((a) => a.servicoId !== servicoId),
+      servicos: s.servicos.map((sv) => (sv.id === servicoId ? { ...sv, concluidoEm: undefined } : sv)),
+    }));
   },
 
   addPergunta: async (servicoId, texto, tipo, obrigatoria) => {
