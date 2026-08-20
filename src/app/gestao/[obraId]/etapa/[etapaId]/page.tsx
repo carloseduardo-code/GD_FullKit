@@ -12,10 +12,11 @@ import {
   predecessorasPendentes,
   progressoEtapa,
   servicosDoSubtree,
+  situacaoEtapa,
   sucessorasDe,
   type ProgressoEtapa,
 } from "@/lib/planejamento";
-import { ConcluidaBadge, StatusBadge } from "@/components/status-badge";
+import { ConcluidaBadge, SituacaoEtapaBadge, StatusBadge } from "@/components/status-badge";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -40,7 +41,9 @@ export default function EtapaGestaoPage() {
 
   const progresso = progressoPorEtapaId.get(etapaId)!;
   const janela = janelaDatasServicos(servicosDoSubtree(etapaId, etapasDaObra, servicos));
+  // Gate de planejamento (predecessoras) x situação real (Full Kit dos serviços).
   const liberada = etapaLiberada(etapa, progressoPorEtapaId);
+  const situacao = situacaoEtapa(progresso);
   const pendentes = predecessorasPendentes(etapa, etapasDaObra, progressoPorEtapaId);
   const sucessoras = sucessorasDe(etapaId, etapasDaObra);
 
@@ -75,11 +78,10 @@ export default function EtapaGestaoPage() {
               </div>
             </div>
           </div>
-          {liberada ? (
-            <Badge className="bg-primary text-primary-foreground">Liberada</Badge>
-          ) : (
-            <Badge variant="secondary">Bloqueada</Badge>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <SituacaoEtapaBadge situacao={situacao} />
+            {!liberada && <Badge variant="secondary">Bloqueada</Badge>}
+          </div>
         </div>
 
         {temDetalhesExtras && (
@@ -116,7 +118,7 @@ export default function EtapaGestaoPage() {
           </Card>
           <Card>
             <CardHeader>
-              <CardDescription>Em andamento</CardDescription>
+              <CardDescription>Liberadas</CardDescription>
               <CardTitle className="text-2xl">{progresso.liberado}</CardTitle>
             </CardHeader>
           </Card>
@@ -142,6 +144,7 @@ export default function EtapaGestaoPage() {
             {filhas.map((filha) => {
               const progFilha = progressoPorEtapaId.get(filha.id)!;
               const liberadaFilha = etapaLiberada(filha, progressoPorEtapaId);
+              const situacaoFilha = situacaoEtapa(progFilha);
               return (
                 <Link key={filha.id} href={`/gestao/${obraId}/etapa/${filha.id}`}>
                   <Card className="transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md cursor-pointer">
@@ -149,9 +152,8 @@ export default function EtapaGestaoPage() {
                       <div className="flex-1 space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <CardTitle className="text-sm font-medium">{filha.nome}</CardTitle>
-                          {liberadaFilha ? (
-                            <Badge className="bg-primary text-primary-foreground text-xs">Liberada</Badge>
-                          ) : (
+                          <SituacaoEtapaBadge situacao={situacaoFilha} className="text-xs" />
+                          {!liberadaFilha && (
                             <Badge variant="secondary" className="text-xs">Bloqueada</Badge>
                           )}
                         </div>
