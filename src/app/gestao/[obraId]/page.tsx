@@ -12,11 +12,30 @@ import {
   predecessorasPendentes,
   progressoEtapa,
   servicosDoSubtree,
+  situacaoEtapa,
   type ProgressoEtapa,
+  type SituacaoEtapa,
 } from "@/lib/planejamento";
+import { SituacaoEtapaBadge } from "@/components/status-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+
+const CORES_SITUACAO: Record<SituacaoEtapa, string> = {
+  nao_iniciada: "bg-muted-foreground/40",
+  em_andamento: "bg-primary/40",
+  nao_liberada: "bg-destructive",
+  liberada: "bg-primary/70",
+  concluida: "bg-primary",
+};
+
+const ROTULOS_SITUACAO: Record<SituacaoEtapa, (total: number) => string> = {
+  nao_iniciada: (n) => (n === 1 ? "não iniciada" : "não iniciadas"),
+  em_andamento: () => "em andamento",
+  nao_liberada: (n) => (n === 1 ? "não liberada" : "não liberadas"),
+  liberada: (n) => (n === 1 ? "liberada" : "liberadas"),
+  concluida: (n) => (n === 1 ? "concluída" : "concluídas"),
+};
 
 export default function PainelGestorPage() {
   const { obraId } = useParams<{ obraId: string }>();
@@ -45,17 +64,26 @@ export default function PainelGestorPage() {
   const etapasComStatus = etapasRaiz.map((etapa) => {
     const progresso = progressoPorEtapaId.get(etapa.id)!;
     const janela = janelaDatasServicos(servicosDoSubtree(etapa.id, etapas, servicos));
+    // `liberada` aqui é só o gate de planejamento (predecessoras concluídas);
+    // a situação mostrada ao gestor vem do Full Kit dos serviços.
     const liberada = etapaLiberada(etapa, progressoPorEtapaId);
+    const situacao = situacaoEtapa(progresso);
     const atrasada = etapaAtrasada(janela, progresso);
     const pendentes = predecessorasPendentes(etapa, etapas, progressoPorEtapaId);
-    return { etapa, progresso, janela, liberada, atrasada, pendentes };
+    return { etapa, progresso, janela, liberada, situacao, atrasada, pendentes };
   });
 
-  const nLiberadas = etapasComStatus.filter((e) => e.liberada).length;
-  const nBloqueadas = etapasComStatus.length - nLiberadas;
+  const contagem = (situacao: SituacaoEtapa) =>
+    etapasComStatus.filter((e) => e.situacao === situacao).length;
+  const resumo: { situacao: SituacaoEtapa; total: number }[] = (
+    ["nao_iniciada", "em_andamento", "nao_liberada", "liberada", "concluida"] as const
+  )
+    .map((situacao) => ({ situacao, total: contagem(situacao) }))
+    .filter((item) => item.total > 0);
+  const nBloqueadas = etapasComStatus.filter((e) => !e.liberada).length;
   const totalPendencias = etapasComStatus.reduce((acc, e) => acc + e.progresso.pendencias, 0);
 
-  const gargalos = etapasComStatus.filter((e) => e.atrasada || (e.liberada && e.progresso.pendencias > 0));
+  const gargalos = etapasComStatus.filter((e) => e.atrasada || e.progresso.pendencias > 0);
 
   return (
     <div className="space-y-8">
@@ -76,14 +104,21 @@ export default function PainelGestorPage() {
       </div>
 
       <div className="flex flex-wrap gap-2.5">
-        <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs font-medium">
-          <span className="size-1.5 rounded-full bg-primary" />
-          {nLiberadas} liberada{nLiberadas === 1 ? "" : "s"}
-        </span>
-        <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs font-medium">
-          <span className="size-1.5 rounded-full bg-muted-foreground/40" />
-          {nBloqueadas} bloqueada{nBloqueadas === 1 ? "" : "s"}
-        </span>
+        {resumo.map(({ situacao, total }) => (
+          <span
+            key={situacao}
+            className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs font-medium"
+          >
+            <span className={cn("size-1.5 rounded-full", CORES_SITUACAO[situacao])} />
+            {total} {ROTULOS_SITUACAO[situacao](total)}
+          </span>
+        ))}
+        {nBloqueadas > 0 && (
+          <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs font-medium">
+            <span className="size-1.5 rounded-full bg-muted-foreground/40" />
+            {nBloqueadas} bloqueada{nBloqueadas === 1 ? "" : "s"} por predecessora
+          </span>
+        )}
         {totalPendencias > 0 && (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-destructive-tint-border bg-destructive-tint px-3 py-1.5 text-xs font-medium text-destructive-tint-foreground">
             <span className="size-1.5 rounded-full bg-destructive" />
@@ -131,7 +166,7 @@ export default function PainelGestorPage() {
           {etapasComStatus.length === 0 && (
             <p className="text-sm text-muted-foreground">Nenhuma etapa cadastrada nesta obra.</p>
           )}
-          {etapasComStatus.map(({ etapa, liberada, atrasada, pendentes }) => {
+          {etapasComStatus.map(({ etapa, situacao, liberada, atrasada, pendentes }) => {
             const servicosDaEtapa = servicosDoSubtree(etapa.id, etapas, servicos);
             return (
               <Link key={etapa.id} href={`/gestao/${obraId}/etapa/${etapa.id}`}>
@@ -140,11 +175,8 @@ export default function PainelGestorPage() {
                     <div className="flex-1 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <CardTitle className="text-base">{etapa.nome}</CardTitle>
-                        {liberada ? (
-                          <Badge className="bg-primary text-primary-foreground">Liberada</Badge>
-                        ) : (
-                          <Badge variant="secondary">Bloqueada</Badge>
-                        )}
+                        <SituacaoEtapaBadge situacao={situacao} />
+                        {!liberada && <Badge variant="secondary">Bloqueada</Badge>}
                         {atrasada && <Badge variant="destructive">Atrasada</Badge>}
                       </div>
                       {!liberada && pendentes.length > 0 && (

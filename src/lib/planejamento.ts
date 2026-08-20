@@ -120,3 +120,27 @@ export function predecessorasPendentes(
 export function sucessorasDe(etapaId: string, todasEtapas: Etapa[]): Etapa[] {
   return todasEtapas.filter((e) => e.predecessorasIds.includes(etapaId));
 }
+
+// Situação real da etapa, derivada do status do Full Kit dos serviços do subtree.
+// Não confundir com `etapaLiberada`, que é o gate de planejamento (predecessoras
+// concluídas). Uma etapa sem predecessoras passa nesse gate desde o primeiro dia,
+// mas continua "Não Iniciada" enquanto nenhum Full Kit tiver sido preenchido.
+export type SituacaoEtapa =
+  | "nao_iniciada"
+  | "em_andamento"
+  | "nao_liberada"
+  | "liberada"
+  | "concluida";
+
+export function situacaoEtapa(progresso: ProgressoEtapa): SituacaoEtapa {
+  const { total, concluida, naoLiberado, naoIniciado } = progresso;
+  // Sem serviços cadastrados não há o que apontar: nada foi iniciado.
+  if (total === 0) return "nao_iniciada";
+  if (concluida === total) return "concluida";
+  if (naoIniciado === total) return "nao_iniciada";
+  // Qualquer Full Kit preenchido com pendência derruba a etapa inteira.
+  if (naoLiberado > 0) return "nao_liberada";
+  // Só é "Liberada" quando todo serviço pendente já teve o Full Kit atendido.
+  if (naoIniciado === 0) return "liberada";
+  return "em_andamento";
+}
