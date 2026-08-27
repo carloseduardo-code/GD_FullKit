@@ -13,6 +13,7 @@ import type {
 } from "@/lib/types";
 import { calcularStatus } from "@/lib/status";
 import { descendentes } from "@/lib/planejamento";
+import { planejarReplicacao } from "@/lib/replicacao";
 import { nomeDuplicado } from "@/lib/utils";
 
 const ETAPA_SELECT = "id, obraId:obra_id, etapaPaiId:etapa_pai_id, nome, ordem, predecessorasIds:predecessoras_ids";
@@ -63,6 +64,17 @@ function linhaPergunta(patch: Partial<Pergunta>): Record<string, unknown> {
   if ("obrigatoria" in patch) linha.obrigatoria = patch.obrigatoria;
   if ("ordem" in patch) linha.ordem = patch.ordem;
   return linha;
+}
+
+function linhaPerguntaNova(p: Pergunta): Record<string, unknown> {
+  return {
+    id: p.id,
+    servico_id: p.servicoId,
+    texto: p.texto,
+    tipo: p.tipo,
+    obrigatoria: p.obrigatoria,
+    ordem: p.ordem,
+  };
 }
 
 function falhaEscrita(mensagem: string): never {
@@ -259,6 +271,8 @@ interface FullKitState {
   updatePergunta: (id: string, patch: Partial<Omit<Pergunta, "id" | "servicoId">>) => Promise<void>;
   removePergunta: (id: string) => Promise<void>;
   reorderPergunta: (id: string, direcao: "subir" | "descer") => Promise<void>;
+  copiarFullKit: (servicoDestinoId: string, servicoModeloId: string) => Promise<number>;
+  replicarFullKitsDaObra: (obraId: string, obraModeloId?: string) => Promise<{ servicos: number; perguntas: number }>;
 
   salvarApontamento: (input: {
     servicoId: string;
@@ -641,6 +655,62 @@ export const useFullKitStore = create<FullKitState>()((set, get) => ({
       alteradas.map((p) => ({ id: p.id, ordem: p.ordem }))
     );
     if (error) toast.error("Não foi possível salvar a nova ordem das perguntas.");
+  },
+
+  // Copia o FULL KIT de um serviço de outra obra para um serviço ainda sem perguntas.
+  copiarFullKit: async (servicoDestinoId, servicoModeloId) => {
+    const atual = get();
+    if (atual.perguntas.some((p) => p.servicoId === servicoDestinoId)) {
+      falhaEscrita("Este serviço já tem perguntas. Apague-as antes de copiar de outra obra.");
+    }
+
+    const doModelo = atual.perguntas
+      .filter((p) => p.servicoId === servicoModeloId)
+      .sort((a, b) => a.ordem - b.ordem);
+    if (doModelo.length === 0) falhaEscrita("O serviço escolhido como modelo não tem perguntas.");
+
+    const novas: Pergunta[] = doModelo.map((p) => ({
+      id: crypto.randomUUID(),
+      servicoId: servicoDestinoId,
+      texto: p.texto,
+      tipo: p.tipo,
+      obrigatoria: p.obrigatoria,
+      ordem: p.ordem,
+    }));
+
+    const { error } = await supabase.from("perguntas").insert(novas.map(linhaPerguntaNova));
+    if (error) falhaEscrita("Não foi possível copiar o FULL KIT.");
+
+    set((s) => ({ perguntas: [...s.perguntas, ...novas] }));
+    return novas.length;
+  },
+
+  // Preenche de uma vez todos os serviços vazios da obra, casando pelo nome com os
+  // serviços de mesmo nome de outra obra. Serviço que já tem pergunta não é tocado.
+  replicarFullKitsDaObra: async (obraId, obraModeloId) => {
+    const atual = get();
+    const plano = planejarReplicacao(obraId, atual, obraModeloId);
+    if (plano.copiar.length === 0) return { servicos: 0, perguntas: 0 };
+
+    const novas: Pergunta[] = plano.copiar.flatMap((item) =>
+      atual.perguntas
+        .filter((p) => p.servicoId === item.modelo!.servico.id)
+        .sort((a, b) => a.ordem - b.ordem)
+        .map((p) => ({
+          id: crypto.randomUUID(),
+          servicoId: item.servico.id,
+          texto: p.texto,
+          tipo: p.tipo,
+          obrigatoria: p.obrigatoria,
+          ordem: p.ordem,
+        }))
+    );
+
+    const { error } = await supabase.from("perguntas").insert(novas.map(linhaPerguntaNova));
+    if (error) falhaEscrita("Não foi possível replicar os FULL KITs.");
+
+    set((s) => ({ perguntas: [...s.perguntas, ...novas] }));
+    return { servicos: plano.copiar.length, perguntas: novas.length };
   },
 
   salvarApontamento: async ({ servicoId, respostas, fotos, observacoes, autor }) => {
