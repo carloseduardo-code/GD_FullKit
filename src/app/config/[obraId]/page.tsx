@@ -8,6 +8,7 @@ import { useShallow } from "zustand/react/shallow";
 import { servicosDoSubtree } from "@/lib/planejamento";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
+import { ReplicarFullKitObra } from "@/components/replicar-full-kit-obra";
 
 export default function ObraOverviewPage() {
   const { obraId } = useParams<{ obraId: string }>();
@@ -40,6 +41,8 @@ export default function ObraOverviewPage() {
           </div>
         </div>
       </Link>
+
+      <ReplicarFullKitObra obraId={obraId} />
 
       <div className="space-y-3">
         <h2 className="font-medium">Fluxo executivo</h2>

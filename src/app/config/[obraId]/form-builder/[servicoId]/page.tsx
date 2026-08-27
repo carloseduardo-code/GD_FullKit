@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PerguntaEditor } from "@/components/form-builder/pergunta-editor";
 import { FullKitForm } from "@/components/full-kit-form";
+import { CopiarFullKit } from "@/components/form-builder/copiar-full-kit";
 
 export default function FormBuilderPage() {
   const { obraId, servicoId } = useParams<{ obraId: string; servicoId: string }>();
@@ -71,7 +72,10 @@ export default function FormBuilderPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {perguntasOrdenadas.length === 0 && (
-                <p className="text-sm text-muted-foreground py-2">Nenhuma pergunta configurada ainda.</p>
+                <>
+                  <p className="text-sm text-muted-foreground py-2">Nenhuma pergunta configurada ainda.</p>
+                  <CopiarFullKit servicoId={servicoId} servicoNome={servico.nome} obraId={obraId} />
+                </>
               )}
               {perguntasOrdenadas.map((pergunta, i) => (
                 <PerguntaEditor
