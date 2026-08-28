@@ -4,10 +4,10 @@ import { useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Building2, Copy, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Building2, ClipboardList, Copy, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { useFullKitStore } from "@/lib/store";
 import { nomeDuplicado } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -166,6 +166,16 @@ export default function ObrasPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Obras</h1>
         <p className="text-muted-foreground">Selecione uma obra para configurar ou cadastre uma nova.</p>
       </div>
+
+      <Link href="/config/full-kits" className={buttonVariants({ variant: "outline", className: "h-auto justify-start p-4" })}>
+        <ClipboardList className="size-4" />
+        <div className="text-left">
+          <div className="font-medium">Catálogo de FULL KITs</div>
+          <div className="text-xs font-normal text-muted-foreground">
+            Checklists padrão, cadastrados uma vez e usados ao montar o fluxo de qualquer obra
+          </div>
+        </div>
+      </Link>
 
       <div className="grid gap-4 sm:grid-cols-2">
         {obras.map((obra) => (

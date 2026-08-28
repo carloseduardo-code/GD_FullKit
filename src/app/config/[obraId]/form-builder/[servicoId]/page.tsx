@@ -13,6 +13,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PerguntaEditor } from "@/components/form-builder/pergunta-editor";
 import { FullKitForm } from "@/components/full-kit-form";
 import { CopiarFullKit } from "@/components/form-builder/copiar-full-kit";
+import { SalvarNoCatalogo } from "@/components/form-builder/salvar-no-catalogo";
 
 export default function FormBuilderPage() {
   const { obraId, servicoId } = useParams<{ obraId: string; servicoId: string }>();
@@ -51,6 +52,7 @@ export default function FormBuilderPage() {
       </div>
 
       <Tabs defaultValue="editar">
+        <div className="flex flex-wrap items-center justify-between gap-2">
         <TabsList>
           <TabsTrigger value="editar">
             <Pencil data-icon="inline-start" className="size-3.5" />
@@ -61,6 +63,10 @@ export default function FormBuilderPage() {
             Pré-visualizar
           </TabsTrigger>
         </TabsList>
+          {perguntasOrdenadas.length > 0 && (
+            <SalvarNoCatalogo servicoId={servicoId} servicoNome={servico.nome} />
+          )}
+        </div>
 
         <TabsContent value="editar" className="mt-4">
           <Card>

@@ -4,8 +4,10 @@ import { supabase } from "@/lib/supabase/client";
 import type {
   Apontamento,
   Etapa,
+  FullKitModelo,
   Obra,
   Pergunta,
+  PerguntaModelo,
   Resposta,
   ServicoNotavel,
   StatusResultado,
@@ -18,8 +20,10 @@ import { nomeDuplicado } from "@/lib/utils";
 
 const ETAPA_SELECT = "id, obraId:obra_id, etapaPaiId:etapa_pai_id, nome, ordem, predecessorasIds:predecessoras_ids";
 const SERVICO_SELECT =
-  "id, etapaId:etapa_id, nome, ordem, dataInicioPrevista:data_inicio_prevista, dataFimPrevista:data_fim_prevista, concluidoEm:concluido_em";
+  "id, etapaId:etapa_id, nome, ordem, dataInicioPrevista:data_inicio_prevista, dataFimPrevista:data_fim_prevista, concluidoEm:concluido_em, fullKitId:full_kit_id";
 const PERGUNTA_SELECT = "id, servicoId:servico_id, texto, tipo, obrigatoria, ordem";
+const FULL_KIT_SELECT = "id, nome, descricao";
+const PERGUNTA_MODELO_SELECT = "id, fullKitId:full_kit_id, texto, tipo, obrigatoria, ordem";
 const APONTAMENTO_SELECT = "id, servicoId:servico_id, respostas, fotos, observacoes, autor, criadoEm:criado_em";
 
 // O PostgREST devolve no máximo 1000 linhas por requisição e não sinaliza que cortou.
@@ -63,6 +67,7 @@ function normalizarServico(row: ServicoNotavel): ServicoNotavel {
     dataInicioPrevista: row.dataInicioPrevista ?? undefined,
     dataFimPrevista: row.dataFimPrevista ?? undefined,
     concluidoEm: row.concluidoEm ?? undefined,
+    fullKitId: row.fullKitId ?? undefined,
   };
 }
 
@@ -84,6 +89,7 @@ function linhaServico(patch: Partial<ServicoNotavel>): Record<string, unknown> {
   if ("dataInicioPrevista" in patch) linha.data_inicio_prevista = patch.dataInicioPrevista ?? null;
   if ("dataFimPrevista" in patch) linha.data_fim_prevista = patch.dataFimPrevista ?? null;
   if ("concluidoEm" in patch) linha.concluido_em = patch.concluidoEm ?? null;
+  if ("fullKitId" in patch) linha.full_kit_id = patch.fullKitId ?? null;
   return linha;
 }
 
@@ -106,6 +112,16 @@ function linhaPerguntaNova(p: Pergunta): Record<string, unknown> {
     obrigatoria: p.obrigatoria,
     ordem: p.ordem,
   };
+}
+
+function linhaPerguntaModelo(patch: Partial<PerguntaModelo>): Record<string, unknown> {
+  const linha: Record<string, unknown> = {};
+  if ("fullKitId" in patch) linha.full_kit_id = patch.fullKitId;
+  if ("texto" in patch) linha.texto = patch.texto;
+  if ("tipo" in patch) linha.tipo = patch.tipo;
+  if ("obrigatoria" in patch) linha.obrigatoria = patch.obrigatoria;
+  if ("ordem" in patch) linha.ordem = patch.ordem;
+  return linha;
 }
 
 function falhaEscrita(mensagem: string): never {
@@ -275,6 +291,8 @@ interface FullKitState {
   servicos: ServicoNotavel[];
   perguntas: Pergunta[];
   apontamentos: Apontamento[];
+  fullKits: FullKitModelo[];
+  perguntasModelo: PerguntaModelo[];
 
   carregarTudo: () => Promise<void>;
 
@@ -303,6 +321,22 @@ interface FullKitState {
   removePergunta: (id: string) => Promise<void>;
   reorderPergunta: (id: string, direcao: "subir" | "descer") => Promise<void>;
   copiarFullKit: (servicoDestinoId: string, servicoModeloId: string) => Promise<number>;
+
+  addFullKit: (nome: string, descricao: string) => Promise<FullKitModelo>;
+  updateFullKit: (id: string, patch: Partial<Omit<FullKitModelo, "id">>) => Promise<void>;
+  removeFullKit: (id: string) => Promise<void>;
+  duplicarFullKit: (id: string) => Promise<FullKitModelo>;
+  addPerguntaModelo: (
+    fullKitId: string,
+    texto: string,
+    tipo: TipoPergunta,
+    obrigatoria: boolean
+  ) => Promise<PerguntaModelo>;
+  updatePerguntaModelo: (id: string, patch: Partial<Omit<PerguntaModelo, "id" | "fullKitId">>) => Promise<void>;
+  removePerguntaModelo: (id: string) => Promise<void>;
+  reorderPerguntaModelo: (id: string, direcao: "subir" | "descer") => Promise<void>;
+  addServicoDoCatalogo: (etapaId: string, fullKitId: string) => Promise<ServicoNotavel>;
+  salvarServicoNoCatalogo: (servicoId: string, nome: string, descricao: string) => Promise<FullKitModelo>;
   replicarFullKitsDaObra: (obraId: string, obraModeloId?: string) => Promise<{ servicos: number; perguntas: number }>;
 
   salvarApontamento: (input: {
@@ -342,18 +376,29 @@ export const useFullKitStore = create<FullKitState>()((set, get) => ({
   servicos: [],
   perguntas: [],
   apontamentos: [],
+  fullKits: [],
+  perguntasModelo: [],
 
   carregarTudo: async () => {
-    const [obrasRes, etapasRes, servicosRes, perguntasRes, apontamentosRes] = await Promise.all([
+    const [obrasRes, etapasRes, servicosRes, perguntasRes, apontamentosRes, fullKitsRes, perguntasModeloRes] =
+      await Promise.all([
       carregarTabela<Obra>("obras", "id, nome, endereco"),
       carregarTabela<Etapa>("etapas", ETAPA_SELECT),
       carregarTabela<ServicoNotavel>("servicos", SERVICO_SELECT),
       carregarTabela<Pergunta>("perguntas", PERGUNTA_SELECT),
       carregarTabela<Apontamento>("apontamentos", APONTAMENTO_SELECT),
+      carregarTabela<FullKitModelo>("full_kits", FULL_KIT_SELECT),
+      carregarTabela<PerguntaModelo>("full_kit_perguntas", PERGUNTA_MODELO_SELECT),
     ]);
 
     const erro =
-      obrasRes.error || etapasRes.error || servicosRes.error || perguntasRes.error || apontamentosRes.error;
+      obrasRes.error ||
+      etapasRes.error ||
+      servicosRes.error ||
+      perguntasRes.error ||
+      apontamentosRes.error ||
+      fullKitsRes.error ||
+      perguntasModeloRes.error;
     if (erro) {
       toast.error("Não foi possível carregar os dados do Supabase. Confira se o schema.sql já foi executado.");
       set({ carregado: true });
@@ -366,6 +411,8 @@ export const useFullKitStore = create<FullKitState>()((set, get) => ({
       servicos: servicosRes.data.map(normalizarServico),
       perguntas: perguntasRes.data,
       apontamentos: apontamentosRes.data,
+      fullKits: fullKitsRes.data,
+      perguntasModelo: perguntasModeloRes.data,
       carregado: true,
     });
   },
@@ -724,6 +771,193 @@ export const useFullKitStore = create<FullKitState>()((set, get) => ({
 
     set((s) => ({ perguntas: [...s.perguntas, ...gravadas] }));
     return gravadas.length;
+  },
+
+  addFullKit: async (nome, descricao) => {
+    const { data, error } = await supabase
+      .from("full_kits")
+      .insert({ nome, descricao })
+      .select(FULL_KIT_SELECT)
+      .single();
+    if (error || !data) falhaEscrita("Não foi possível criar o FULL KIT.");
+    const fullKit = data as FullKitModelo;
+    set((s) => ({ fullKits: [...s.fullKits, fullKit] }));
+    return fullKit;
+  },
+  updateFullKit: async (fullKitId, patch) => {
+    const { error } = await supabase.from("full_kits").update(patch).eq("id", fullKitId);
+    if (error) falhaEscrita("Não foi possível atualizar o FULL KIT.");
+    set((s) => ({ fullKits: s.fullKits.map((fk) => (fk.id === fullKitId ? { ...fk, ...patch } : fk)) }));
+  },
+  removeFullKit: async (fullKitId) => {
+    const { error } = await supabase.from("full_kits").delete().eq("id", fullKitId);
+    if (error) falhaEscrita("Não foi possível excluir o FULL KIT.");
+    // Os serviços que nasceram deste modelo ficam intactos: o banco só zera o vínculo
+    // (on delete set null), porque as perguntas deles são cópias independentes.
+    set((s) => ({
+      fullKits: s.fullKits.filter((fk) => fk.id !== fullKitId),
+      perguntasModelo: s.perguntasModelo.filter((p) => p.fullKitId !== fullKitId),
+      servicos: s.servicos.map((sv) => (sv.fullKitId === fullKitId ? { ...sv, fullKitId: undefined } : sv)),
+    }));
+  },
+  duplicarFullKit: async (fullKitId) => {
+    const atual = get();
+    const original = atual.fullKits.find((fk) => fk.id === fullKitId);
+    if (!original) throw new Error("FULL KIT não encontrado.");
+
+    const nome = nomeComSufixoCopia(original.nome, atual.fullKits.map((fk) => fk.nome));
+    const novo = await get().addFullKit(nome, original.descricao);
+
+    const perguntas = atual.perguntasModelo
+      .filter((p) => p.fullKitId === fullKitId)
+      .sort((a, b) => a.ordem - b.ordem)
+      .map((p) => ({
+        id: crypto.randomUUID(),
+        fullKitId: novo.id,
+        texto: p.texto,
+        tipo: p.tipo,
+        obrigatoria: p.obrigatoria,
+        ordem: p.ordem,
+      }));
+
+    if (perguntas.length > 0) {
+      const { data, error } = await supabase
+        .from("full_kit_perguntas")
+        .insert(perguntas.map((p) => ({ id: p.id, ...linhaPerguntaModelo(p) })))
+        .select(PERGUNTA_MODELO_SELECT);
+      if (error) falhaEscrita("O FULL KIT foi criado, mas não foi possível copiar as perguntas.");
+      set((s) => ({ perguntasModelo: [...s.perguntasModelo, ...((data ?? []) as PerguntaModelo[])] }));
+    }
+
+    return novo;
+  },
+
+  addPerguntaModelo: async (fullKitId, texto, tipo, obrigatoria) => {
+    const doKit = get().perguntasModelo.filter((p) => p.fullKitId === fullKitId);
+    const ordem = doKit.length > 0 ? Math.max(...doKit.map((p) => p.ordem)) + 1 : 1;
+
+    const { data, error } = await supabase
+      .from("full_kit_perguntas")
+      .insert({ full_kit_id: fullKitId, texto, tipo, obrigatoria, ordem })
+      .select(PERGUNTA_MODELO_SELECT)
+      .single();
+    if (error || !data) falhaEscrita("Não foi possível criar a pergunta.");
+    const pergunta = data as PerguntaModelo;
+    set((s) => ({ perguntasModelo: [...s.perguntasModelo, pergunta] }));
+    return pergunta;
+  },
+  updatePerguntaModelo: async (perguntaId, patch) => {
+    const { error } = await supabase
+      .from("full_kit_perguntas")
+      .update(linhaPerguntaModelo(patch))
+      .eq("id", perguntaId);
+    if (error) falhaEscrita("Não foi possível atualizar a pergunta.");
+    set((s) => ({
+      perguntasModelo: s.perguntasModelo.map((p) => (p.id === perguntaId ? { ...p, ...patch } : p)),
+    }));
+  },
+  removePerguntaModelo: async (perguntaId) => {
+    const { error } = await supabase.from("full_kit_perguntas").delete().eq("id", perguntaId);
+    if (error) falhaEscrita("Não foi possível excluir a pergunta.");
+    set((s) => ({ perguntasModelo: s.perguntasModelo.filter((p) => p.id !== perguntaId) }));
+  },
+  reorderPerguntaModelo: async (perguntaId, direcao) => {
+    const atual = get();
+    const pergunta = atual.perguntasModelo.find((p) => p.id === perguntaId);
+    if (!pergunta) return;
+    const doKit = atual.perguntasModelo.filter((p) => p.fullKitId === pergunta.fullKitId);
+    const reordenadas = reorder(doKit, perguntaId, direcao);
+    if (reordenadas === doKit) return;
+
+    const outras = atual.perguntasModelo.filter((p) => p.fullKitId !== pergunta.fullKitId);
+    set({ perguntasModelo: [...outras, ...reordenadas] });
+
+    const alteradas = reordenadas.filter((p) => doKit.find((d) => d.id === p.id)?.ordem !== p.ordem);
+    const { error } = await supabase
+      .from("full_kit_perguntas")
+      .upsert(alteradas.map((p) => ({ id: p.id, ordem: p.ordem })));
+    if (error) toast.error("Não foi possível salvar a nova ordem das perguntas.");
+  },
+
+  // Adiciona um serviço à etapa já com o checklist do modelo copiado. É cópia, não
+  // vínculo: mexer no modelo depois não altera esta obra.
+  addServicoDoCatalogo: async (etapaId, fullKitId) => {
+    const atual = get();
+    const modelo = atual.fullKits.find((fk) => fk.id === fullKitId);
+    if (!modelo) throw new Error("FULL KIT não encontrado.");
+
+    const servicosDaEtapa = atual.servicos.filter((sv) => sv.etapaId === etapaId);
+    const ordem = servicosDaEtapa.length > 0 ? Math.max(...servicosDaEtapa.map((sv) => sv.ordem)) + 1 : 1;
+
+    const { data, error } = await supabase
+      .from("servicos")
+      .insert({ etapa_id: etapaId, nome: modelo.nome, ordem, full_kit_id: fullKitId })
+      .select(SERVICO_SELECT)
+      .single();
+    if (error || !data) falhaEscrita("Não foi possível criar o serviço.");
+    const servico = normalizarServico(data as ServicoNotavel);
+
+    const novas: Pergunta[] = atual.perguntasModelo
+      .filter((p) => p.fullKitId === fullKitId)
+      .sort((a, b) => a.ordem - b.ordem)
+      .map((p) => ({
+        id: crypto.randomUUID(),
+        servicoId: servico.id,
+        texto: p.texto,
+        tipo: p.tipo,
+        obrigatoria: p.obrigatoria,
+        ordem: p.ordem,
+      }));
+
+    let gravadas: Pergunta[] = [];
+    if (novas.length > 0) {
+      const { data: linhas, error: erroPerguntas } = await supabase
+        .from("perguntas")
+        .insert(novas.map(linhaPerguntaNova))
+        .select(PERGUNTA_SELECT);
+      if (erroPerguntas) {
+        toast.error("Serviço criado, mas não foi possível copiar o FULL KIT do catálogo.");
+      } else {
+        gravadas = (linhas ?? []) as Pergunta[];
+      }
+    }
+
+    set((s) => ({ servicos: [...s.servicos, servico], perguntas: [...s.perguntas, ...gravadas] }));
+    return servico;
+  },
+
+  // Caminho inverso: promove o checklist já montado num serviço a item do catálogo.
+  salvarServicoNoCatalogo: async (servicoId, nome, descricao) => {
+    const atual = get();
+    const doServico = atual.perguntas
+      .filter((p) => p.servicoId === servicoId)
+      .sort((a, b) => a.ordem - b.ordem);
+    if (doServico.length === 0) falhaEscrita("Este serviço ainda não tem perguntas para virar um modelo.");
+
+    const modelo = await get().addFullKit(nome, descricao);
+
+    const novas = doServico.map((p) => ({
+      id: crypto.randomUUID(),
+      fullKitId: modelo.id,
+      texto: p.texto,
+      tipo: p.tipo,
+      obrigatoria: p.obrigatoria,
+      ordem: p.ordem,
+    }));
+
+    const { data, error } = await supabase
+      .from("full_kit_perguntas")
+      .insert(novas.map((p) => ({ id: p.id, ...linhaPerguntaModelo(p) })))
+      .select(PERGUNTA_MODELO_SELECT);
+    if (error) falhaEscrita("O modelo foi criado, mas não foi possível copiar as perguntas.");
+
+    set((s) => ({
+      perguntasModelo: [...s.perguntasModelo, ...((data ?? []) as PerguntaModelo[])],
+      servicos: s.servicos.map((sv) => (sv.id === servicoId ? { ...sv, fullKitId: modelo.id } : sv)),
+    }));
+    await supabase.from("servicos").update({ full_kit_id: modelo.id }).eq("id", servicoId);
+
+    return modelo;
   },
 
   // Preenche de uma vez todos os serviços vazios da obra, casando pelo nome com os

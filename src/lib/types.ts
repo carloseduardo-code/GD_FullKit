@@ -23,15 +23,36 @@ export interface ServicoNotavel {
   dataInicioPrevista?: string;
   dataFimPrevista?: string;
   concluidoEm?: string;
+  // De qual FULL KIT do catálogo este serviço nasceu (informativo).
+  fullKitId?: string;
 }
 
-export interface Pergunta {
+// Uma pergunta de checklist, seja ela a pergunta real de um serviço numa obra
+// ou a pergunta de um FULL KIT do catálogo — o editor e a pré-visualização
+// funcionam igual para as duas.
+export interface PerguntaBase {
   id: string;
-  servicoId: string;
   texto: string;
   tipo: TipoPergunta;
   obrigatoria: boolean;
   ordem: number;
+}
+
+export interface Pergunta extends PerguntaBase {
+  servicoId: string;
+}
+
+// Catálogo: um FULL KIT cadastrado uma vez e reaproveitado ao montar o fluxo
+// de qualquer obra. Ao usar o modelo, as perguntas são copiadas para o serviço,
+// então editar o modelo depois não mexe nas obras já montadas.
+export interface FullKitModelo {
+  id: string;
+  nome: string;
+  descricao: string;
+}
+
+export interface PerguntaModelo extends PerguntaBase {
+  fullKitId: string;
 }
 
 export type RespostaBooleana = "sim" | "nao" | "nao_aplica";
