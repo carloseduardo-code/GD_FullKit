@@ -22,6 +22,37 @@ const SERVICO_SELECT =
 const PERGUNTA_SELECT = "id, servicoId:servico_id, texto, tipo, obrigatoria, ordem";
 const APONTAMENTO_SELECT = "id, servicoId:servico_id, respostas, fotos, observacoes, autor, criadoEm:criado_em";
 
+// O PostgREST devolve no máximo 1000 linhas por requisição e não sinaliza que cortou.
+// Sem paginar, uma base grande carregava só parte das perguntas: o FULL KIT aparecia
+// vazio na tela mesmo estando salvo no banco. Ordenamos por id para a paginação ser
+// estável (sem ORDER BY, LIMIT/OFFSET pode repetir ou pular linhas).
+const LINHAS_POR_PAGINA = 1000;
+const MAX_PAGINAS = 200;
+
+async function carregarTabela<T>(
+  tabela: string,
+  colunas: string
+): Promise<{ data: T[]; error: unknown }> {
+  const linhas: T[] = [];
+
+  for (let pagina = 0; pagina < MAX_PAGINAS; pagina++) {
+    const inicio = pagina * LINHAS_POR_PAGINA;
+    const { data, error } = await supabase
+      .from(tabela)
+      .select(colunas)
+      .order("id", { ascending: true })
+      .range(inicio, inicio + LINHAS_POR_PAGINA - 1);
+
+    if (error) return { data: [], error };
+
+    const recebidas = (data ?? []) as T[];
+    linhas.push(...recebidas);
+    if (recebidas.length < LINHAS_POR_PAGINA) break;
+  }
+
+  return { data: linhas, error: null };
+}
+
 function normalizarEtapa(row: Etapa): Etapa {
   return { ...row, etapaPaiId: row.etapaPaiId ?? undefined };
 }
@@ -314,11 +345,11 @@ export const useFullKitStore = create<FullKitState>()((set, get) => ({
 
   carregarTudo: async () => {
     const [obrasRes, etapasRes, servicosRes, perguntasRes, apontamentosRes] = await Promise.all([
-      supabase.from("obras").select("id, nome, endereco"),
-      supabase.from("etapas").select(ETAPA_SELECT),
-      supabase.from("servicos").select(SERVICO_SELECT),
-      supabase.from("perguntas").select(PERGUNTA_SELECT),
-      supabase.from("apontamentos").select(APONTAMENTO_SELECT),
+      carregarTabela<Obra>("obras", "id, nome, endereco"),
+      carregarTabela<Etapa>("etapas", ETAPA_SELECT),
+      carregarTabela<ServicoNotavel>("servicos", SERVICO_SELECT),
+      carregarTabela<Pergunta>("perguntas", PERGUNTA_SELECT),
+      carregarTabela<Apontamento>("apontamentos", APONTAMENTO_SELECT),
     ]);
 
     const erro =
@@ -330,11 +361,11 @@ export const useFullKitStore = create<FullKitState>()((set, get) => ({
     }
 
     set({
-      obras: (obrasRes.data ?? []) as Obra[],
-      etapas: ((etapasRes.data ?? []) as Etapa[]).map(normalizarEtapa),
-      servicos: ((servicosRes.data ?? []) as ServicoNotavel[]).map(normalizarServico),
-      perguntas: (perguntasRes.data ?? []) as Pergunta[],
-      apontamentos: (apontamentosRes.data ?? []) as Apontamento[],
+      obras: obrasRes.data,
+      etapas: etapasRes.data.map(normalizarEtapa),
+      servicos: servicosRes.data.map(normalizarServico),
+      perguntas: perguntasRes.data,
+      apontamentos: apontamentosRes.data,
       carregado: true,
     });
   },
@@ -678,11 +709,21 @@ export const useFullKitStore = create<FullKitState>()((set, get) => ({
       ordem: p.ordem,
     }));
 
-    const { error } = await supabase.from("perguntas").insert(novas.map(linhaPerguntaNova));
+    // Lê de volta o que entrou: assim uma linha barrada em silêncio (RLS, por exemplo)
+    // vira erro na hora, em vez de sumir só quando a tela é recarregada.
+    const { data, error } = await supabase
+      .from("perguntas")
+      .insert(novas.map(linhaPerguntaNova))
+      .select(PERGUNTA_SELECT);
     if (error) falhaEscrita("Não foi possível copiar o FULL KIT.");
 
-    set((s) => ({ perguntas: [...s.perguntas, ...novas] }));
-    return novas.length;
+    const gravadas = (data ?? []) as Pergunta[];
+    if (gravadas.length !== novas.length) {
+      falhaEscrita("O FULL KIT foi copiado só em parte. Recarregue a página e tente de novo.");
+    }
+
+    set((s) => ({ perguntas: [...s.perguntas, ...gravadas] }));
+    return gravadas.length;
   },
 
   // Preenche de uma vez todos os serviços vazios da obra, casando pelo nome com os
@@ -706,11 +747,19 @@ export const useFullKitStore = create<FullKitState>()((set, get) => ({
         }))
     );
 
-    const { error } = await supabase.from("perguntas").insert(novas.map(linhaPerguntaNova));
+    const { data, error } = await supabase
+      .from("perguntas")
+      .insert(novas.map(linhaPerguntaNova))
+      .select(PERGUNTA_SELECT);
     if (error) falhaEscrita("Não foi possível replicar os FULL KITs.");
 
-    set((s) => ({ perguntas: [...s.perguntas, ...novas] }));
-    return { servicos: plano.copiar.length, perguntas: novas.length };
+    const gravadas = (data ?? []) as Pergunta[];
+    if (gravadas.length !== novas.length) {
+      falhaEscrita("Os FULL KITs foram preenchidos só em parte. Recarregue a página e tente de novo.");
+    }
+
+    set((s) => ({ perguntas: [...s.perguntas, ...gravadas] }));
+    return { servicos: plano.copiar.length, perguntas: gravadas.length };
   },
 
   salvarApontamento: async ({ servicoId, respostas, fotos, observacoes, autor }) => {
