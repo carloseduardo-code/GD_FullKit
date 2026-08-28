@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, ChevronUp, Copy, ListChecks, Loader2, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, ClipboardList, Copy, ListChecks, Loader2, Plus, Trash2 } from "lucide-react";
 import { useFullKitStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
 import { nomeDuplicado } from "@/lib/utils";
@@ -12,6 +12,7 @@ import { caminhoEtapa } from "@/lib/planejamento";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import type { ServicoNotavel } from "@/lib/types";
 
@@ -144,7 +145,12 @@ export default function ServicosPage() {
   const removeServico = useFullKitStore((s) => s.removeServico);
   const reorderServico = useFullKitStore((s) => s.reorderServico);
   const duplicarServico = useFullKitStore((s) => s.duplicarServico);
+  const fullKits = useFullKitStore((s) => s.fullKits);
+  const perguntasModelo = useFullKitStore((s) => s.perguntasModelo);
+  const addServicoDoCatalogo = useFullKitStore((s) => s.addServicoDoCatalogo);
 
+  const [fullKitEscolhido, setFullKitEscolhido] = useState("");
+  const [adicionandoDoCatalogo, setAdicionandoDoCatalogo] = useState(false);
   const [nome, setNome] = useState("");
   const [erroNome, setErroNome] = useState<string | null>(null);
   const [servicoParaExcluir, setServicoParaExcluir] = useState<ServicoNotavel | null>(null);
@@ -152,6 +158,7 @@ export default function ServicosPage() {
   if (!obra || !etapa) return notFound();
 
   const servicosOrdenados = [...servicos].sort((a, b) => a.ordem - b.ordem);
+  const fullKitsOrdenados = [...fullKits].sort((a, b) => a.nome.localeCompare(b.nome));
 
   async function handleCriar() {
     const trimmed = nome.trim();
@@ -170,6 +177,25 @@ export default function ServicosPage() {
       toast.success("Serviço criado");
     } catch {
       // erro já mostrado pelo store
+    }
+  }
+
+  async function handleAdicionarDoCatalogo() {
+    const modelo = fullKits.find((fk) => fk.id === fullKitEscolhido);
+    if (!modelo) return;
+    if (nomeDuplicado(modelo.nome, servicos.map((sv) => sv.nome))) {
+      toast.error("Esta etapa já tem um serviço com esse nome.");
+      return;
+    }
+    setAdicionandoDoCatalogo(true);
+    try {
+      await addServicoDoCatalogo(etapaId, modelo.id);
+      setFullKitEscolhido("");
+      toast.success(`"${modelo.nome}" adicionado com o FULL KIT do catálogo`);
+    } catch {
+      // erro já mostrado pelo store
+    } finally {
+      setAdicionandoDoCatalogo(false);
     }
   }
 
@@ -236,10 +262,56 @@ export default function ServicosPage() {
             />
           ))}
 
+          {fullKitsOrdenados.length > 0 && (
+            <div className="space-y-2 rounded-md border border-dashed p-3">
+              <p className="text-sm font-medium">Adicionar do catálogo</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={fullKitEscolhido} onValueChange={(v) => setFullKitEscolhido(v ?? "")}>
+                  <SelectTrigger className="w-80">
+                    <SelectValue>
+                      {(v: string) => {
+                        const fk = fullKitsOrdenados.find((op) => op.id === v);
+                        if (!fk) return "Escolha um FULL KIT cadastrado";
+                        const n = perguntasModelo.filter((p) => p.fullKitId === fk.id).length;
+                        return `${fk.nome} (${n} pergunta${n === 1 ? "" : "s"})`;
+                      }}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {fullKitsOrdenados.map((fk) => {
+                      const n = perguntasModelo.filter((p) => p.fullKitId === fk.id).length;
+                      return (
+                        <SelectItem key={fk.id} value={fk.id}>
+                          {fk.nome} ({n} pergunta{n === 1 ? "" : "s"})
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="secondary"
+                  onClick={handleAdicionarDoCatalogo}
+                  disabled={!fullKitEscolhido || adicionandoDoCatalogo}
+                >
+                  {adicionandoDoCatalogo ? (
+                    <Loader2 data-icon="inline-start" className="animate-spin" />
+                  ) : (
+                    <ClipboardList data-icon="inline-start" />
+                  )}
+                  Adicionar com o checklist pronto
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                O serviço entra já com as perguntas do modelo. É uma cópia: editar o catálogo depois
+                não altera esta obra.
+              </p>
+            </div>
+          )}
+
           <div className="flex gap-2 pt-2">
             <div className="flex-1 space-y-1.5">
               <Input
-                placeholder="Nome do novo serviço (ex: Armação)"
+                placeholder="Ou digite o nome de um serviço novo (ex: Armação)"
                 value={nome}
                 onChange={(e) => {
                   setNome(e.target.value);

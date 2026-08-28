@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Pergunta, TipoPergunta } from "@/lib/types";
+import type { PerguntaBase, TipoPergunta } from "@/lib/types";
 
 const TIPOS: { value: TipoPergunta; label: string }[] = [
   { value: "boolean", label: "Sim/Não" },
@@ -22,8 +22,8 @@ const TIPOS: { value: TipoPergunta; label: string }[] = [
 ];
 
 interface PerguntaEditorProps {
-  pergunta: Pergunta;
-  onUpdate: (patch: Partial<Pick<Pergunta, "texto" | "tipo" | "obrigatoria">>) => void;
+  pergunta: PerguntaBase;
+  onUpdate: (patch: Partial<Pick<PerguntaBase, "texto" | "tipo" | "obrigatoria">>) => void;
   onRemove: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;

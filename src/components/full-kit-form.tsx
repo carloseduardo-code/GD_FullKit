@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import type { Pergunta, RespostaBooleana, TipoPergunta } from "@/lib/types";
+import type { PerguntaBase, RespostaBooleana, TipoPergunta } from "@/lib/types";
 
 const TIPO_LABEL: Record<TipoPergunta, string> = {
   boolean: "Sim/Não",
@@ -17,7 +17,7 @@ const TIPO_LABEL: Record<TipoPergunta, string> = {
 };
 
 interface FullKitFormProps {
-  perguntas: Pergunta[];
+  perguntas: PerguntaBase[];
   mode: "preview" | "responder" | "consulta";
   respostas?: Record<string, RespostaBooleana | string | number | null>;
   onChangeResposta?: (perguntaId: string, valor: RespostaBooleana | string | number | null) => void;

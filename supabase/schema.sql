@@ -45,6 +45,29 @@ create table if not exists perguntas (
   created_at timestamptz not null default now()
 );
 
+-- Catálogo de FULL KITs: modelos de checklist cadastrados uma vez e reaproveitados
+-- na hora de montar o fluxo de qualquer obra.
+create table if not exists full_kits (
+  id uuid primary key default gen_random_uuid(),
+  nome text not null,
+  descricao text not null default '',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists full_kit_perguntas (
+  id uuid primary key default gen_random_uuid(),
+  full_kit_id uuid not null references full_kits (id) on delete cascade,
+  texto text not null,
+  tipo text not null check (tipo in ('boolean', 'texto', 'numero', 'foto')),
+  obrigatoria boolean not null default true,
+  ordem integer not null,
+  created_at timestamptz not null default now()
+);
+
+-- Guarda de qual modelo o serviço nasceu (informativo). Como o modelo é copiado
+-- e não vinculado, apagar o modelo não altera o checklist já montado na obra.
+alter table servicos add column if not exists full_kit_id uuid references full_kits (id) on delete set null;
+
 create table if not exists apontamentos (
   id uuid primary key default gen_random_uuid(),
   servico_id uuid not null references servicos (id) on delete cascade,
@@ -60,6 +83,8 @@ create index if not exists idx_etapas_etapa_pai_id on etapas (etapa_pai_id);
 create index if not exists idx_servicos_etapa_id on servicos (etapa_id);
 create index if not exists idx_perguntas_servico_id on perguntas (servico_id);
 create index if not exists idx_apontamentos_servico_id on apontamentos (servico_id);
+create index if not exists idx_full_kit_perguntas_full_kit_id on full_kit_perguntas (full_kit_id);
+create index if not exists idx_servicos_full_kit_id on servicos (full_kit_id);
 
 -- RLS: ligado em todas as tabelas, mas com política permissiva TEMPORÁRIA.
 -- A Fase 2 (login + papéis GOD/Administrador/Apontador) troca isso por
@@ -69,9 +94,13 @@ alter table etapas enable row level security;
 alter table servicos enable row level security;
 alter table perguntas enable row level security;
 alter table apontamentos enable row level security;
+alter table full_kits enable row level security;
+alter table full_kit_perguntas enable row level security;
 
 create policy "temp_allow_all_obras" on obras for all using (true) with check (true);
 create policy "temp_allow_all_etapas" on etapas for all using (true) with check (true);
 create policy "temp_allow_all_servicos" on servicos for all using (true) with check (true);
 create policy "temp_allow_all_perguntas" on perguntas for all using (true) with check (true);
 create policy "temp_allow_all_apontamentos" on apontamentos for all using (true) with check (true);
+create policy "temp_allow_all_full_kits" on full_kits for all using (true) with check (true);
+create policy "temp_allow_all_full_kit_perguntas" on full_kit_perguntas for all using (true) with check (true);
