@@ -1,9 +1,10 @@
-import { AppShell } from "@/components/app-shell";
+import { AppHeader } from "@/components/app-header";
 
 export default function ConfigLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AppShell section="config">
-      <div className="mx-auto w-full max-w-[1180px]">{children}</div>
-    </AppShell>
+    <div className="flex flex-1 flex-col">
+      <AppHeader section="Configuração" />
+      <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">{children}</main>
+    </div>
   );
 }

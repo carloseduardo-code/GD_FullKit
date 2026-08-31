@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Camera, ImageIcon, X, XCircle } from "lucide-react";
+import { Camera, ImageIcon, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import type { PerguntaBase, RespostaBooleana, TipoPergunta } from "@/lib/types";
 
@@ -145,153 +147,112 @@ export function FullKitForm({
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      {ordenadas.map((p, i) => {
-        const ehPendencia = p.obrigatoria && p.tipo === "boolean" && respostas[p.id] === "nao";
-        const naoRespondida =
-          p.obrigatoria && (respostas[p.id] === undefined || respostas[p.id] === null || respostas[p.id] === "");
-        return (
-          <div
-            key={p.id}
-            className={cn(
-              "flex flex-col gap-3 rounded-[14px] border bg-card p-4",
-              ehPendencia ? "border-destructive-tint-border" : "border-border"
-            )}
-          >
-            <div className="flex items-start gap-2">
-              <span
-                className={cn(
-                  "flex size-5 shrink-0 items-center justify-center rounded-md text-[10.5px] font-semibold",
-                  ehPendencia
-                    ? "bg-destructive-tint text-destructive-tint-foreground"
-                    : "bg-[oklch(0.96_0.004_155)] text-foreground/60"
-                )}
+    <div className="space-y-5">
+      {ordenadas.map((p) => (
+        <div key={p.id} className="space-y-2">
+          <Label className="text-sm font-normal leading-snug">
+            {p.texto}
+            {p.obrigatoria && <span className="text-destructive ml-1">*</span>}
+          </Label>
+
+          {p.tipo === "boolean" && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={respostas[p.id] === "sim" ? "default" : "outline"}
+                onClick={() => onChangeResposta?.(p.id, "sim")}
               >
-                {i + 1}
-              </span>
-              <p className="flex-1 text-[14.5px] leading-snug font-semibold text-foreground">
-                {p.texto}
-                {p.obrigatoria && <span className="ml-1 text-destructive">*</span>}
-              </p>
+                Sim
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={respostas[p.id] === "nao" ? "destructive" : "outline"}
+                onClick={() => onChangeResposta?.(p.id, "nao")}
+              >
+                Não
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={respostas[p.id] === "nao_aplica" ? "secondary" : "outline"}
+                onClick={() => onChangeResposta?.(p.id, "nao_aplica")}
+              >
+                Não se aplica
+              </Button>
+              {respostas[p.id] === undefined && p.obrigatoria && (
+                <span className="text-xs text-muted-foreground italic">Ainda não respondida</span>
+              )}
             </div>
+          )}
 
-            {p.tipo === "boolean" && (
-              <>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onChangeResposta?.(p.id, "sim")}
-                    className={cn(
-                      "flex h-12 flex-1 items-center justify-center rounded-[13px] text-[14.5px] font-bold",
-                      respostas[p.id] === "sim"
-                        ? "bg-primary text-primary-foreground"
-                        : "border border-border bg-card text-foreground/80"
-                    )}
-                  >
-                    Sim
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onChangeResposta?.(p.id, "nao")}
-                    className={cn(
-                      "flex h-12 flex-1 items-center justify-center rounded-[13px] text-[14.5px] font-bold",
-                      respostas[p.id] === "nao"
-                        ? "bg-destructive text-white"
-                        : "border border-border bg-card text-foreground/80"
-                    )}
-                  >
-                    Não
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onChangeResposta?.(p.id, "nao_aplica")}
-                    className={cn(
-                      "flex h-12 flex-1 items-center justify-center rounded-[13px] text-[13px] font-semibold",
-                      respostas[p.id] === "nao_aplica"
-                        ? "bg-secondary text-secondary-foreground"
-                        : "border border-border bg-card text-foreground/80"
-                    )}
-                  >
-                    N/A
-                  </button>
-                </div>
-                {ehPendencia && (
-                  <div className="flex items-center gap-1.5 rounded-[10px] bg-destructive-tint px-2.5 py-2 text-[12.5px] font-semibold text-destructive-tint-foreground">
-                    <XCircle className="size-3.5 shrink-0" />
-                    Pendência registrada — serviço não liberado
-                  </div>
-                )}
-                {naoRespondida && (
-                  <span className="text-xs text-muted-foreground italic">Ainda não respondida</span>
-                )}
-              </>
-            )}
+          {p.tipo === "texto" && (
+            <Input
+              value={(respostas[p.id] as string) ?? ""}
+              onChange={(e) => onChangeResposta?.(p.id, e.target.value)}
+              placeholder="Resposta"
+            />
+          )}
 
-            {p.tipo === "texto" && (
-              <Input
-                value={(respostas[p.id] as string) ?? ""}
-                onChange={(e) => onChangeResposta?.(p.id, e.target.value)}
-                placeholder="Resposta"
-                className="h-11"
-              />
-            )}
+          {p.tipo === "numero" && (
+            <Input
+              type="number"
+              value={(respostas[p.id] as number) ?? ""}
+              onChange={(e) => onChangeResposta?.(p.id, e.target.value === "" ? null : Number(e.target.value))}
+              placeholder="0"
+            />
+          )}
 
-            {p.tipo === "numero" && (
-              <Input
-                type="number"
-                value={(respostas[p.id] as number) ?? ""}
-                onChange={(e) => onChangeResposta?.(p.id, e.target.value === "" ? null : Number(e.target.value))}
-                placeholder="0"
-                className="h-11"
-              />
-            )}
-
-            {p.tipo === "foto" && (
-              <div className="flex gap-2">
-                <label className="flex h-12 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[13px] border border-dashed border-border bg-[oklch(0.985_0.003_155)] text-[13.5px] font-semibold text-foreground/70 hover:bg-muted">
-                  <Camera className="size-[18px]" />
-                  Tirar foto
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => handleAdicionarFotos(e.target.files)}
-                  />
-                </label>
-                <span className="flex h-12 w-16 shrink-0 items-center justify-center rounded-[13px] bg-muted text-muted-foreground">
-                  <ImageIcon className="size-[17px]" />
-                </span>
-              </div>
-            )}
-
-            {p.tipo === "foto" && fotos.length > 0 && (
-              <ul className="flex flex-col gap-1.5">
-                {fotos.map((f) => (
-                  <li key={f} className="flex items-center gap-2 rounded-lg bg-muted px-2 py-1.5 text-xs">
-                    {previewUrls[f] ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- URL blob de sessão, não otimizável por next/image
-                      <img src={previewUrls[f]} alt={f} className="size-8 shrink-0 rounded object-cover" />
-                    ) : (
-                      <div className="flex size-8 shrink-0 items-center justify-center rounded bg-background text-muted-foreground">
-                        <ImageIcon className="size-4" />
-                      </div>
-                    )}
-                    <span className="flex-1 truncate">{f}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoverFoto(f)}
-                      className="text-muted-foreground hover:text-foreground"
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        );
-      })}
+          {p.tipo === "foto" && (
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 rounded-md border border-dashed p-3 text-sm text-muted-foreground cursor-pointer hover:bg-accent">
+                <Camera className="size-4" />
+                Adicionar fotos
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => handleAdicionarFotos(e.target.files)}
+                />
+              </label>
+              {fotos.length > 0 && (
+                <ul className="space-y-1.5">
+                  {fotos.map((f) => (
+                    <li key={f} className="flex items-center gap-2 rounded bg-muted px-2 py-1.5 text-xs">
+                      {previewUrls[f] ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- session blob: URL, not optimizable by next/image
+                        <img
+                          src={previewUrls[f]}
+                          alt={f}
+                          className="size-8 shrink-0 rounded object-cover"
+                        />
+                      ) : (
+                        <div
+                          className={cn(
+                            "flex size-8 shrink-0 items-center justify-center rounded bg-background text-muted-foreground"
+                          )}
+                        >
+                          <ImageIcon className="size-4" />
+                        </div>
+                      )}
+                      <span className="flex-1 truncate">{f}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoverFoto(f)}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

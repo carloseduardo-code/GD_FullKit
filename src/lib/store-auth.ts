@@ -48,14 +48,9 @@ export const useAuthStore = create<AuthState>()((set) => ({
   profile: null,
 
   carregarSessao: async () => {
-    let user: User | null = null;
-    try {
-      const resultado = await supabase.auth.getUser();
-      user = resultado.data.user;
-    } catch {
-      // Falha de rede ao checar a sessão: segue como deslogado em vez de
-      // travar a tela em carregamento indefinidamente.
-    }
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       set({ carregado: true, userId: null, profile: null });

@@ -23,7 +23,7 @@ export async function GET() {
   if (!god) return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
 
   const admin = createAdminClient();
-  const usuarios: { id: string; username: string; nome: string; role: string; ultimoAcesso: string | null }[] = [];
+  const usuarios: { id: string; username: string; nome: string; role: string }[] = [];
   let pagina = 1;
   while (true) {
     const { data, error } = await admin.auth.admin.listUsers({ page: pagina, perPage: 200 });
@@ -34,7 +34,6 @@ export async function GET() {
         username: typeof u.app_metadata?.username === "string" ? u.app_metadata.username : (u.email?.split("@")[0] ?? ""),
         nome: typeof u.user_metadata?.nome === "string" ? u.user_metadata.nome : "",
         role: typeof u.app_metadata?.role === "string" ? u.app_metadata.role : "apontador",
-        ultimoAcesso: u.last_sign_in_at ?? null,
       });
     }
     if (data.users.length < 200) break;

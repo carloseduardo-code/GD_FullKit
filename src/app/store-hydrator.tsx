@@ -11,9 +11,7 @@ export function StoreHydrator({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const carregado = useFullKitStore((s) => s.carregado);
   const carregarTudo = useFullKitStore((s) => s.carregarTudo);
-  // "/" agora mostra indicadores reais (landing pública ou dashboard, conforme
-  // login) — precisa dos dados como "/gestao", que já é pública e carregada.
-  const precisaDados = !ROTAS_SEM_DADOS.some((rota) => pathname.startsWith(rota));
+  const precisaDados = pathname !== "/" && !ROTAS_SEM_DADOS.some((rota) => pathname.startsWith(rota));
 
   useEffect(() => {
     if (precisaDados) carregarTudo();
