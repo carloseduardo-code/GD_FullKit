@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { Loader2, UserPlus } from "lucide-react";
+import { Loader2, Search, UserPlus } from "lucide-react";
 import { ROLE_LABEL, type Role } from "@/lib/store-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+import { cn, formatarRelativo } from "@/lib/utils";
 
 function iniciaisDe(nome: string): string {
   return (
@@ -28,6 +28,7 @@ interface Usuario {
   username: string;
   nome: string;
   role: Role;
+  ultimoAcesso: string | null;
 }
 
 type PapelCriavel = "administrador" | "apontador";
@@ -37,9 +38,17 @@ const PAPEIS_CRIAVEIS: { value: PapelCriavel; label: string }[] = [
   { value: "administrador", label: "Administrador" },
 ];
 
+const FILTROS_PAPEL: { value: Role | "todos"; label: string }[] = [
+  { value: "todos", label: "Todos" },
+  { value: "administrador", label: "Administrador" },
+  { value: "apontador", label: "Apontador" },
+];
+
 export default function UsuariosPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [busca, setBusca] = useState("");
+  const [filtroPapel, setFiltroPapel] = useState<Role | "todos">("todos");
 
   const [nome, setNome] = useState("");
   const [username, setUsername] = useState("");
@@ -88,11 +97,22 @@ export default function UsuariosPage() {
     carregarUsuarios();
   }
 
+  const usuariosFiltrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    return usuarios.filter((u) => {
+      const bateBusca = !termo || u.nome.toLowerCase().includes(termo) || u.username.toLowerCase().includes(termo);
+      const batePapel = filtroPapel === "todos" || u.role === filtroPapel;
+      return bateBusca && batePapel;
+    });
+  }, [usuarios, busca, filtroPapel]);
+
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Usuários</h1>
-        <p className="text-muted-foreground">Crie acessos de Administrador ou Apontador para a equipe.</p>
+    <div className="flex flex-col gap-5.5">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-[26px] font-bold tracking-tight text-foreground">Usuários</h1>
+          <p className="text-sm text-muted-foreground">Acessos de Administrador e Apontador da equipe.</p>
+        </div>
       </div>
 
       <Card className="max-w-md">
@@ -155,14 +175,41 @@ export default function UsuariosPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Todos os usuários</CardTitle>
-          <CardDescription>{usuarios.length} usuário{usuarios.length === 1 ? "" : "s"} cadastrado{usuarios.length === 1 ? "" : "s"}.</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <div className="overflow-hidden rounded-[14px] border border-border bg-card">
+        <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-3.5">
+          <div className="flex h-8 w-[280px] items-center gap-2 rounded-lg border border-border px-3 text-[12.5px] text-muted-foreground">
+            <Search className="size-3.5 shrink-0" />
+            <input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar por nome ou login"
+              className="w-full bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
+            />
+          </div>
+          <div className="inline-flex gap-0.5 rounded-lg bg-[oklch(0.96_0.004_155)] p-0.5">
+            {FILTROS_PAPEL.map((f) => (
+              <button
+                key={f.value}
+                type="button"
+                onClick={() => setFiltroPapel(f.value)}
+                className={cn(
+                  "h-[26px] rounded-md px-3 text-xs font-semibold transition-colors",
+                  filtroPapel === f.value
+                    ? "bg-card text-foreground shadow-card"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <span className="ml-auto text-[12.5px] text-muted-foreground">
+            {usuariosFiltrados.length} usuário{usuariosFiltrados.length === 1 ? "" : "s"}
+          </span>
+        </div>
+        <div>
           {carregando ? (
-            <div className="flex justify-center py-6">
+            <div className="flex justify-center py-8">
               <Loader2 className="size-5 animate-spin text-muted-foreground" />
             </div>
           ) : (
@@ -170,12 +217,20 @@ export default function UsuariosPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
-                  <TableHead>Usuário</TableHead>
+                  <TableHead>Login</TableHead>
                   <TableHead>Papel</TableHead>
+                  <TableHead>Último acesso</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {usuarios.map((u) => (
+                {usuariosFiltrados.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-6 text-center text-muted-foreground">
+                      Nenhum usuário encontrado.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {usuariosFiltrados.map((u) => (
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2.5">
@@ -189,13 +244,16 @@ export default function UsuariosPage() {
                     <TableCell>
                       <Badge variant="secondary">{ROLE_LABEL[u.role]}</Badge>
                     </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {u.ultimoAcesso ? formatarRelativo(u.ultimoAcesso) : "nunca acessou"}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

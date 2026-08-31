@@ -115,7 +115,7 @@ function EtapaNode({
 
   return (
     <div style={{ marginLeft: nivel > 0 ? 24 : 0 }} className="space-y-2">
-      <div className="rounded-md border p-2.5">
+      <div className="rounded-[10px] border border-border bg-card p-3">
         <div className="flex items-center gap-2">
           {filhas.length > 0 ? (
             <Button variant="ghost" size="icon" className="size-6" onClick={() => setExpandido((v) => !v)}>
@@ -307,14 +307,14 @@ export default function EtapasPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Etapas — {obra.nome}</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-[26px] font-bold tracking-tight text-foreground">Etapas — {obra.nome}</h1>
+        <p className="text-sm text-muted-foreground">
           Fluxo executivo em árvore: uma etapa pode ter sub-etapas, e só é liberada quando suas
           predecessoras estiverem 100% concluídas.
         </p>
       </div>
 
-      <Card>
+      <Card className="rounded-[14px]">
         <CardHeader>
           <CardTitle className="text-base">Fluxo executivo</CardTitle>
         </CardHeader>

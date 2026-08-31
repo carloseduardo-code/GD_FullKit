@@ -147,7 +147,7 @@ export default function EtapaGestaoPage() {
               const situacaoFilha = situacaoEtapa(progFilha);
               return (
                 <Link key={filha.id} href={`/gestao/${obraId}/etapa/${filha.id}`}>
-                  <Card className="transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md cursor-pointer">
+                  <Card className="transition-colors hover:bg-[oklch(0.985_0.004_155)] cursor-pointer">
                     <CardHeader className="flex-row items-center gap-3 space-y-0 py-3">
                       <div className="flex-1 space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
@@ -177,7 +177,7 @@ export default function EtapaGestaoPage() {
               const resultado = getStatusServico(servico.id);
               return (
                 <Link key={servico.id} href={`/gestao/${obraId}/servico/${servico.id}`}>
-                  <Card className="transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md cursor-pointer">
+                  <Card className="transition-colors hover:bg-[oklch(0.985_0.004_155)] cursor-pointer">
                     <CardHeader className="flex-row items-center gap-3 space-y-0 py-3">
                       <div className="flex-1 space-y-1">
                         <CardTitle className="text-sm font-medium">{servico.nome}</CardTitle>
