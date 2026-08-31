@@ -1,10 +1,9 @@
-import { AppHeader } from "@/components/app-header";
+import { AppShell } from "@/components/app-shell";
 
 export default function GestaoLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex flex-1 flex-col">
-      <AppHeader section="Gestão" />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">{children}</main>
-    </div>
+    <AppShell section="gestao">
+      <div className="mx-auto w-full max-w-[1180px]">{children}</div>
+    </AppShell>
   );
 }

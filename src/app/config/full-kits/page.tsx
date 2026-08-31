@@ -3,13 +3,13 @@
 import { useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ChevronRight, Copy, ClipboardList, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Copy, ClipboardList, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { useFullKitStore } from "@/lib/store";
 import { nomeDuplicado } from "@/lib/utils";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -126,16 +126,16 @@ export default function CatalogoPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Catálogo de FULL KITs</h1>
-        <p className="text-muted-foreground">
-          Cadastre aqui os checklists padrão. Ao montar o fluxo de uma obra, o serviço notável é
-          escolhido deste catálogo e já nasce com as perguntas prontas.
+        <h1 className="text-[26px] font-bold tracking-tight text-foreground">Catálogo FULL KIT</h1>
+        <p className="max-w-[620px] text-sm text-muted-foreground">
+          Checklists padrão cadastrados uma vez. Ao montar o fluxo de uma obra, o serviço notável
+          nasce com as perguntas prontas.
         </p>
       </div>
 
-      <div className="space-y-2">
+      <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
         {ordenados.length === 0 && (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground sm:col-span-2 lg:col-span-3">
             Nenhum FULL KIT cadastrado ainda. Cadastre o primeiro no quadro abaixo.
           </p>
         )}
@@ -143,26 +143,16 @@ export default function CatalogoPage() {
           const nPerguntas = qtdPerguntas(fullKit.id);
           const nServicos = qtdServicos(fullKit.id);
           return (
-            <Card key={fullKit.id}>
-              <CardHeader className="flex-row items-center justify-between space-y-0 gap-3">
-                <div className="min-w-0 space-y-1">
-                  <CardTitle className="text-base">{fullKit.nome}</CardTitle>
-                  <CardDescription>
-                    {nPerguntas} pergunta{nPerguntas === 1 ? "" : "s"}
-                    {nServicos > 0 &&
-                      ` · usado em ${nServicos} serviço${nServicos === 1 ? "" : "s"}`}
-                    {fullKit.descricao && ` · ${fullKit.descricao}`}
-                  </CardDescription>
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <Link
-                    href={`/config/full-kits/${fullKit.id}`}
-                    className={buttonVariants({ variant: "secondary", size: "sm" })}
-                  >
-                    <ClipboardList data-icon="inline-start" />
-                    Perguntas
-                    <ChevronRight data-icon="inline-end" />
-                  </Link>
+            <Link
+              key={fullKit.id}
+              href={`/config/full-kits/${fullKit.id}`}
+              className="flex flex-col gap-4 rounded-[14px] border border-border bg-card p-5.5 hover:bg-[oklch(0.985_0.004_155)]"
+            >
+              <div className="flex items-start justify-between gap-2.5">
+                <span className="flex size-9 items-center justify-center rounded-[10px] bg-primary-tint text-primary-tint-foreground">
+                  <ClipboardList className="size-[17px]" />
+                </span>
+                <div className="flex shrink-0 items-center gap-0.5 text-muted-foreground">
                   <Button variant="ghost" size="icon-sm" onClick={(e) => abrirEdicao(e, fullKit)} title="Renomear">
                     <Pencil className="size-3.5" />
                   </Button>
@@ -182,14 +172,34 @@ export default function CatalogoPage() {
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    className="text-muted-foreground hover:text-destructive"
-                    onClick={() => setParaExcluir(fullKit)}
+                    className="hover:text-destructive"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setParaExcluir(fullKit);
+                    }}
                   >
                     <Trash2 className="size-3.5" />
                   </Button>
                 </div>
-              </CardHeader>
-            </Card>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[15px] font-bold tracking-tight text-foreground">{fullKit.nome}</span>
+                {fullKit.descricao && (
+                  <span className="text-[12.5px] leading-relaxed text-muted-foreground">{fullKit.descricao}</span>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="inline-flex h-[22px] items-center rounded-full bg-[oklch(0.96_0.004_155)] px-2.5 text-[11.5px] font-semibold text-foreground/70">
+                  {nPerguntas} pergunta{nPerguntas === 1 ? "" : "s"}
+                </span>
+                {nServicos > 0 && (
+                  <span className="inline-flex h-[22px] items-center rounded-full bg-[oklch(0.96_0.004_155)] px-2.5 text-[11.5px] font-semibold text-foreground/70">
+                    usado em {nServicos} serviço{nServicos === 1 ? "" : "s"}
+                  </span>
+                )}
+              </div>
+            </Link>
           );
         })}
       </div>
