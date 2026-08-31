@@ -738,15 +738,7 @@ export const useFullKitStore = create<FullKitState>()((set, get) => ({
   // Copia o FULL KIT de um serviço de outra obra para um serviço ainda sem perguntas.
   copiarFullKit: async (servicoDestinoId, servicoModeloId) => {
     const atual = get();
-    // Confere no banco, não na tela: uma lista desatualizada aqui vira checklist
-    // duplicado no serviço, que é o que já aconteceu quando a leitura vinha cortada.
-    const { data: existentes, error: erroConferencia } = await supabase
-      .from("perguntas")
-      .select("id")
-      .eq("servico_id", servicoDestinoId)
-      .limit(1);
-    if (erroConferencia) falhaEscrita("Não foi possível conferir o checklist atual do serviço.");
-    if ((existentes ?? []).length > 0) {
+    if (atual.perguntas.some((p) => p.servicoId === servicoDestinoId)) {
       falhaEscrita("Este serviço já tem perguntas. Apague-as antes de copiar de outra obra.");
     }
 
@@ -971,15 +963,6 @@ export const useFullKitStore = create<FullKitState>()((set, get) => ({
   // Preenche de uma vez todos os serviços vazios da obra, casando pelo nome com os
   // serviços de mesmo nome de outra obra. Serviço que já tem pergunta não é tocado.
   replicarFullKitsDaObra: async (obraId, obraModeloId) => {
-    // Relê as perguntas antes de decidir quem está vazio: o plano montado sobre uma
-    // lista incompleta enxerga serviços já preenchidos como vazios e copia por cima.
-    const { data: perguntasFrescas, error: erroLeitura } = await carregarTabela<Pergunta>(
-      "perguntas",
-      PERGUNTA_SELECT
-    );
-    if (erroLeitura) falhaEscrita("Não foi possível conferir os checklists atuais. Tente de novo.");
-    set({ perguntas: perguntasFrescas });
-
     const atual = get();
     const plano = planejarReplicacao(obraId, atual, obraModeloId);
     if (plano.copiar.length === 0) return { servicos: 0, perguntas: 0 };
