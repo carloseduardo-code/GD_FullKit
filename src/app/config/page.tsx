@@ -4,13 +4,13 @@ import { useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowRight, Building2, ClipboardList, Copy, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Building2, ClipboardList, Copy, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { useFullKitStore } from "@/lib/store";
 import { nomeDuplicado } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -161,20 +161,13 @@ export default function ObrasPage() {
   }
 
   return (
-    <div className="flex flex-col gap-5.5">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-[26px] font-bold tracking-tight text-foreground">Obras e etapas</h1>
-          <p className="text-sm text-muted-foreground">
-            Configure o fluxo executivo, os serviços notáveis e os checklists de cada obra.
-          </p>
-        </div>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Obras</h1>
+        <p className="text-muted-foreground">Selecione uma obra para configurar ou cadastre uma nova.</p>
       </div>
 
-      <Link
-        href="/config/full-kits"
-        className={buttonVariants({ variant: "outline", className: "h-auto justify-start p-4" })}
-      >
+      <Link href="/config/full-kits" className={buttonVariants({ variant: "outline", className: "h-auto justify-start p-4" })}>
         <ClipboardList className="size-4" />
         <div className="text-left">
           <div className="font-medium">Catálogo de FULL KITs</div>
@@ -185,28 +178,18 @@ export default function ObrasPage() {
       </Link>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        {obras.map((obra) => {
-          const etapasDaObra = etapas.filter((e) => e.obraId === obra.id);
-          const idsEtapas = new Set(etapasDaObra.map((e) => e.id));
-          const totalServicos = servicos.filter((sv) => idsEtapas.has(sv.etapaId)).length;
-          const totalConcluidos = servicos.filter(
-            (sv) => idsEtapas.has(sv.etapaId) && sv.concluidoEm
-          ).length;
-          const avancoObra = totalServicos > 0 ? Math.round((totalConcluidos / totalServicos) * 100) : 0;
-
-          return (
-            <div key={obra.id} className="overflow-hidden rounded-[14px] border border-border bg-card">
-              <Link href={`/config/${obra.id}`} className="flex items-start gap-3.5 p-5.5 hover:bg-[oklch(0.985_0.004_155)]">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-primary-tint">
-                  <Building2 className="size-[18px] text-primary-tint-foreground" />
-                </span>
-                <div className="min-w-0 flex-1 space-y-0.5">
-                  <span className="block text-[15.5px] font-bold tracking-tight text-foreground">{obra.nome}</span>
-                  <span className="block text-[12.5px] text-muted-foreground">
-                    {obra.endereco || "Sem endereço cadastrado"}
+        {obras.map((obra) => (
+          <Link key={obra.id} href={`/config/${obra.id}`}>
+            <Card className="h-full transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md cursor-pointer">
+              <CardHeader className="flex-row items-start justify-between space-y-0">
+                <div className="space-y-1.5">
+                  <span className="flex size-9 items-center justify-center rounded-full bg-primary-tint">
+                    <Building2 className="size-4 text-primary-tint-foreground" />
                   </span>
+                  <CardTitle>{obra.nome}</CardTitle>
+                  <CardDescription>{obra.endereco || "Sem endereço cadastrado"}</CardDescription>
                 </div>
-                <div className="flex shrink-0 gap-0.5 text-muted-foreground">
+                <div className="flex gap-1 shrink-0">
                   <Button variant="ghost" size="icon-sm" onClick={(e) => abrirEdicao(e, obra)}>
                     <Pencil className="size-3.5" />
                   </Button>
@@ -216,43 +199,16 @@ export default function ObrasPage() {
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    className="hover:text-destructive"
+                    className="text-muted-foreground hover:text-destructive"
                     onClick={(e) => abrirExclusao(e, obra)}
                   >
                     <Trash2 className="size-3.5" />
                   </Button>
                 </div>
-              </Link>
-              <div className="flex border-t border-border bg-[oklch(0.985_0.003_155)]">
-                <div className="flex flex-1 flex-col gap-0.5 px-5 py-3">
-                  <span className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground/90 uppercase">
-                    Etapas
-                  </span>
-                  <span className="text-[17px] font-bold tabular-nums text-foreground">{etapasDaObra.length}</span>
-                </div>
-                <div className="flex flex-1 flex-col gap-0.5 border-l border-border px-5 py-3">
-                  <span className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground/90 uppercase">
-                    Serviços
-                  </span>
-                  <span className="text-[17px] font-bold tabular-nums text-foreground">{totalServicos}</span>
-                </div>
-                <div className="flex flex-1 flex-col gap-0.5 border-l border-border px-5 py-3">
-                  <span className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground/90 uppercase">
-                    Avanço
-                  </span>
-                  <span className="text-[17px] font-bold tabular-nums text-primary">{avancoObra}%</span>
-                </div>
-                <Link
-                  href={`/config/${obra.id}`}
-                  className="flex items-center px-5 text-[12.5px] font-semibold text-foreground/80 hover:text-foreground"
-                >
-                  Configurar
-                  <ArrowRight className="ml-1.5 size-3.5" />
-                </Link>
-              </div>
-            </div>
-          );
-        })}
+              </CardHeader>
+            </Card>
+          </Link>
+        ))}
       </div>
 
       <Card className="max-w-md">

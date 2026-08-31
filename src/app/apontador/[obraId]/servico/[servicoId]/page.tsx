@@ -156,16 +156,15 @@ export default function ResponderFullKitPage() {
       <button
         type="button"
         onClick={handleVoltar}
-        className="flex size-9 items-center justify-center rounded-[10px] border border-border text-foreground/70 hover:bg-muted"
+        className="flex items-center gap-1 text-sm text-muted-foreground"
       >
-        <ChevronLeft className="size-[17px]" />
+        <ChevronLeft className="size-4" />
+        Voltar
       </button>
 
       <div className="space-y-2">
-        <p className="text-[10.5px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-          {caminho.map((e) => e.nome).join(" › ")}
-        </p>
-        <h1 className="text-xl font-bold tracking-tight text-foreground">{servico.nome}</h1>
+        <p className="text-xs text-muted-foreground">{caminho.map((e) => e.nome).join(" › ")}</p>
+        <h1 className="text-xl font-semibold tracking-tight">{servico.nome}</h1>
         {ultimoApontamento && (
           <p className="text-xs text-muted-foreground">
             Atualizado por {ultimoApontamento.autor} em {formatarDataHora(ultimoApontamento.criadoEm)}
@@ -240,7 +239,7 @@ export default function ResponderFullKitPage() {
             />
           </div>
 
-          <Button className="h-[50px] w-full rounded-[14px] text-[15px] font-bold" onClick={handleSalvar}>
+          <Button className="w-full" size="lg" onClick={handleSalvar}>
             Salvar apontamento
           </Button>
         </>

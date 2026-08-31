@@ -1,13 +1,5 @@
 import type { Etapa, ServicoNotavel, StatusResultado } from "@/lib/types";
 
-export interface ResumoObra {
-  etapasRaiz: Etapa[];
-  progressoPorEtapaId: Map<string, ProgressoEtapa>;
-  percentual: number;
-  pendencias: number;
-  resumoSituacoes: { situacao: SituacaoEtapa; total: number }[];
-}
-
 export function descendentes(etapaId: string, todasEtapas: Etapa[]): Etapa[] {
   const filhas = todasEtapas.filter((e) => e.etapaPaiId === etapaId);
   return filhas.flatMap((filha) => [filha, ...descendentes(filha.id, todasEtapas)]);
@@ -151,57 +143,4 @@ export function situacaoEtapa(progresso: ProgressoEtapa): SituacaoEtapa {
   // Só é "Liberada" quando todo serviço pendente já teve o Full Kit atendido.
   if (naoIniciado === 0) return "liberada";
   return "em_andamento";
-}
-
-const ORDEM_SITUACAO: SituacaoEtapa[] = [
-  "nao_iniciada",
-  "em_andamento",
-  "nao_liberada",
-  "liberada",
-  "concluida",
-];
-
-// Agregado por obra (só etapas raiz: o subtree de cada uma já cobre toda a
-// árvore, então somar entre raízes não conta nenhum serviço duas vezes).
-// Compartilhado entre o dashboard (todas as obras) e o painel do gestor (uma obra).
-export function resumoObra(
-  obraId: string,
-  todasEtapasDaObra: Etapa[],
-  todosServicos: ServicoNotavel[],
-  getStatusServico: (servicoId: string) => StatusResultado
-): ResumoObra {
-  const etapasRaiz = todasEtapasDaObra.filter((e) => !e.etapaPaiId).sort((a, b) => a.ordem - b.ordem);
-  const progressoPorEtapaId = new Map<string, ProgressoEtapa>();
-  todasEtapasDaObra.forEach((etapa) => {
-    progressoPorEtapaId.set(
-      etapa.id,
-      progressoEtapa(etapa.id, todasEtapasDaObra, todosServicos, getStatusServico)
-    );
-  });
-
-  let concluida = 0;
-  let total = 0;
-  let pendencias = 0;
-  const porSituacao = new Map<SituacaoEtapa, number>();
-  etapasRaiz.forEach((etapa) => {
-    const progresso = progressoPorEtapaId.get(etapa.id)!;
-    concluida += progresso.concluida;
-    total += progresso.total;
-    pendencias += progresso.pendencias;
-    const situacao = situacaoEtapa(progresso);
-    porSituacao.set(situacao, (porSituacao.get(situacao) ?? 0) + 1);
-  });
-
-  const resumoSituacoes = ORDEM_SITUACAO.map((situacao) => ({
-    situacao,
-    total: porSituacao.get(situacao) ?? 0,
-  })).filter((item) => item.total > 0);
-
-  return {
-    etapasRaiz,
-    progressoPorEtapaId,
-    percentual: total > 0 ? Math.round((concluida / total) * 100) : 0,
-    pendencias,
-    resumoSituacoes,
-  };
 }

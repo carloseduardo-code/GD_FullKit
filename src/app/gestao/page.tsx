@@ -21,7 +21,7 @@ export default function GestaoObrasPage() {
         )}
         {obras.map((obra) => (
           <Link key={obra.id} href={`/gestao/${obra.id}`}>
-            <Card className="h-full transition-colors hover:bg-[oklch(0.985_0.004_155)] cursor-pointer">
+            <Card className="h-full transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md cursor-pointer">
               <CardHeader className="space-y-1.5">
                 <span className="flex size-9 items-center justify-center rounded-full bg-primary-tint">
                   <Building2 className="size-4 text-primary-tint-foreground" />
