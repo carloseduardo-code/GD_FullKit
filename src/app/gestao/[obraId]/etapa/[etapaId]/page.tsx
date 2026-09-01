@@ -16,7 +16,7 @@ import {
   sucessorasDe,
   type ProgressoEtapa,
 } from "@/lib/planejamento";
-import { ConcluidaBadge, SituacaoEtapaBadge, StatusBadge } from "@/components/status-badge";
+import { ServicoStatusBadge, SituacaoEtapaBadge } from "@/components/status-badge";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -182,8 +182,7 @@ export default function EtapaGestaoPage() {
                       <div className="flex-1 space-y-1">
                         <CardTitle className="text-sm font-medium">{servico.nome}</CardTitle>
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <StatusBadge status={resultado.status} />
-                          {servico.concluidoEm && <ConcluidaBadge />}
+                          <ServicoStatusBadge status={resultado.status} concluido={!!servico.concluidoEm} />
                         </div>
                       </div>
                       <ChevronRight className="size-4 text-muted-foreground shrink-0" />
@@ -202,3 +201,4 @@ export default function EtapaGestaoPage() {
     </div>
   );
 }
+

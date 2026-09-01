@@ -28,17 +28,31 @@ export function StatusBadge({ status, className }: { status: StatusServico; clas
   );
 }
 
-// Conclusão não é um dos três status do Full Kit — é um evento à parte (o serviço foi
-// executado). Por isso tem um badge próprio, mostrado ao lado do StatusBadge.
-export function ConcluidaBadge({ className }: { className?: string }) {
+export function ConcluidoBadge({ className }: { className?: string }) {
   return (
     <Badge
       variant="outline"
       className={cn("bg-primary text-primary-foreground border-transparent font-medium", className)}
     >
       <CheckCircle2 data-icon="inline-start" className="size-3" />
-      Concluída
+      Concluído
     </Badge>
+  );
+}
+
+export function ServicoStatusBadge({
+  status,
+  concluido,
+  className,
+}: {
+  status: StatusServico;
+  concluido: boolean;
+  className?: string;
+}) {
+  return concluido ? (
+    <ConcluidoBadge className={className} />
+  ) : (
+    <StatusBadge status={status} className={className} />
   );
 }
 
@@ -83,3 +97,4 @@ export function SituacaoEtapaBadge({
     </Badge>
   );
 }
+

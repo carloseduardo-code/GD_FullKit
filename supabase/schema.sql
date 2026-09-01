@@ -78,11 +78,99 @@ create table if not exists apontamentos (
   criado_em timestamptz not null default now()
 );
 
+-- Regra de integridade: concluir um serviço exige que o último apontamento
+-- atenda todas as perguntas obrigatórias do Full Kit. A validação também fica
+-- no banco para impedir gravações inválidas fora da interface web.
+create or replace function public.full_kit_pendencias_servico(p_servico_id uuid)
+returns text[]
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  with ultimo_apontamento as (
+    select a.id, a.respostas, a.fotos
+    from public.apontamentos a
+    where a.servico_id = p_servico_id
+    order by a.criado_em desc, a.id desc
+    limit 1
+  )
+  select coalesce(array_agg(p.texto order by p.ordem, p.id), '{}'::text[])
+  from public.perguntas p
+  left join ultimo_apontamento u on true
+  where p.servico_id = p_servico_id
+    and p.obrigatoria
+    and (
+      u.id is null
+      or case p.tipo
+        when 'foto' then coalesce(cardinality(u.fotos), 0) = 0
+        when 'boolean' then not exists (
+          select 1
+          from jsonb_array_elements(
+            case when jsonb_typeof(u.respostas) = 'array' then u.respostas else '[]'::jsonb end
+          ) r
+          where r ->> 'perguntaId' = p.id::text
+            and r ->> 'valor' in ('sim', 'nao_aplica')
+        )
+        when 'texto' then not exists (
+          select 1
+          from jsonb_array_elements(
+            case when jsonb_typeof(u.respostas) = 'array' then u.respostas else '[]'::jsonb end
+          ) r
+          where r ->> 'perguntaId' = p.id::text
+            and jsonb_typeof(r -> 'valor') = 'string'
+            and btrim(r ->> 'valor') <> ''
+        )
+        when 'numero' then not exists (
+          select 1
+          from jsonb_array_elements(
+            case when jsonb_typeof(u.respostas) = 'array' then u.respostas else '[]'::jsonb end
+          ) r
+          where r ->> 'perguntaId' = p.id::text
+            and jsonb_typeof(r -> 'valor') = 'number'
+        )
+        else true
+      end
+    );
+$$;
+
+create or replace function public.validar_conclusao_servico()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_pendencias text[];
+begin
+  if new.concluido_em is not null and old.concluido_em is null then
+    v_pendencias := public.full_kit_pendencias_servico(new.id);
+
+    if cardinality(v_pendencias) > 0 then
+      raise exception using
+        errcode = '23514',
+        message = 'O serviço não pode ser concluído enquanto houver pendências no Full Kit.',
+        detail = array_to_string(v_pendencias, ' | ');
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_validar_conclusao_servico on public.servicos;
+create trigger trg_validar_conclusao_servico
+before update of concluido_em on public.servicos
+for each row
+execute function public.validar_conclusao_servico();
+
 create index if not exists idx_etapas_obra_id on etapas (obra_id);
 create index if not exists idx_etapas_etapa_pai_id on etapas (etapa_pai_id);
 create index if not exists idx_servicos_etapa_id on servicos (etapa_id);
 create index if not exists idx_perguntas_servico_id on perguntas (servico_id);
 create index if not exists idx_apontamentos_servico_id on apontamentos (servico_id);
+create index if not exists idx_apontamentos_servico_criado
+  on apontamentos (servico_id, criado_em desc, id desc);
 create index if not exists idx_full_kit_perguntas_full_kit_id on full_kit_perguntas (full_kit_id);
 create index if not exists idx_servicos_full_kit_id on servicos (full_kit_id);
 
@@ -104,3 +192,4 @@ create policy "temp_allow_all_perguntas" on perguntas for all using (true) with 
 create policy "temp_allow_all_apontamentos" on apontamentos for all using (true) with check (true);
 create policy "temp_allow_all_full_kits" on full_kits for all using (true) with check (true);
 create policy "temp_allow_all_full_kit_perguntas" on full_kit_perguntas for all using (true) with check (true);
+

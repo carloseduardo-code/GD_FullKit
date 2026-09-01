@@ -5,22 +5,24 @@ import { notFound, useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CheckCircle2, ChevronLeft, RotateCcw, Undo2 } from "lucide-react";
 import { useFullKitStore } from "@/lib/store";
+import { useAuthStore } from "@/lib/store-auth";
 import { useShallow } from "zustand/react/shallow";
-import { calcularStatus } from "@/lib/status";
+import { calcularStatus, ConclusaoBloqueadaError } from "@/lib/status";
 import { caminhoEtapa } from "@/lib/planejamento";
 import { formatarDataHora } from "@/lib/utils";
 import { FullKitForm } from "@/components/full-kit-form";
-import { ConcluidaBadge, StatusBadge } from "@/components/status-badge";
+import { ServicoStatusBadge } from "@/components/status-badge";
 import { PendenciasList } from "@/components/pendencias-list";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import type { Resposta, RespostaBooleana } from "@/lib/types";
+import type { Pendencia, Resposta, RespostaBooleana } from "@/lib/types";
 
 export default function ResponderFullKitPage() {
   const { obraId, servicoId } = useParams<{ obraId: string; servicoId: string }>();
   const router = useRouter();
+  const profile = useAuthStore((s) => s.profile);
 
   const servico = useFullKitStore((s) => s.servicos.find((sv) => sv.id === servicoId));
   const etapasDaObra = useFullKitStore(useShallow((s) => s.etapas.filter((e) => e.obraId === obraId)));
@@ -47,6 +49,7 @@ export default function ResponderFullKitPage() {
   const [confirmSairAberto, setConfirmSairAberto] = useState(false);
   const [confirmResetAberto, setConfirmResetAberto] = useState(false);
   const [processandoConclusao, setProcessandoConclusao] = useState(false);
+  const [pendenciasConclusao, setPendenciasConclusao] = useState<Pendencia[]>([]);
 
   const [baseline, setBaseline] = useState(() =>
     JSON.stringify({ respostas: respostasIniciais, fotos: ultimoApontamento?.fotos ?? [], observacoes: ultimoApontamento?.observacoes ?? "" })
@@ -90,7 +93,7 @@ export default function ResponderFullKitPage() {
         respostas: listaRespostas,
         fotos,
         observacoes,
-        autor: "Apontador (protótipo)",
+        autor: profile?.nome || profile?.username || "Apontador",
       });
     } catch {
       return; // erro já mostrado pelo store
@@ -109,17 +112,26 @@ export default function ResponderFullKitPage() {
     });
 
     setResultadoSalvo(resultado);
+    if (resultado.status === "liberado") setPendenciasConclusao([]);
     toast.success("Apontamento salvo");
   }
 
   async function handleMarcarConcluido() {
     setProcessandoConclusao(true);
+    setPendenciasConclusao([]);
     try {
       await marcarConcluido(servicoId);
       toast.success("Serviço concluído. Avanço físico atualizado.");
       router.push(voltarHref);
-    } catch {
-      // erro já mostrado pelo store
+    } catch (erro) {
+      if (erro instanceof ConclusaoBloqueadaError) {
+        setPendenciasConclusao(erro.pendencias);
+        toast.error(
+          erro.pendencias.length > 0
+            ? "Não é possível concluir. Responda e salve as perguntas obrigatórias indicadas."
+            : "Não é possível concluir. Preencha e salve o Full Kit primeiro."
+        );
+      }
     } finally {
       setProcessandoConclusao(false);
     }
@@ -145,6 +157,7 @@ export default function ResponderFullKitPage() {
       setObservacoes("");
       setBaseline(JSON.stringify({ respostas: {}, fotos: [], observacoes: "" }));
       setResultadoSalvo(null);
+      setPendenciasConclusao([]);
       toast.success("Full Kit limpo. Serviço voltou para Não Iniciada.");
     } catch {
       // erro já mostrado pelo store
@@ -171,12 +184,11 @@ export default function ResponderFullKitPage() {
           </p>
         )}
         <div className="flex flex-wrap items-center gap-2 pt-1">
-          <StatusBadge status={statusAtual.status} />
-          {servico.concluidoEm && <ConcluidaBadge />}
-          {statusAtual.status === "liberado" && !servico.concluidoEm && (
+          <ServicoStatusBadge status={statusAtual.status} concluido={!!servico.concluidoEm} />
+          {!servico.concluidoEm && (
             <Button size="sm" variant="outline" disabled={processandoConclusao} onClick={handleMarcarConcluido}>
               <CheckCircle2 data-icon="inline-start" className="size-3.5" />
-              Marcar como concluída
+              Marcar como concluído
             </Button>
           )}
           {servico.concluidoEm && (
@@ -197,17 +209,27 @@ export default function ResponderFullKitPage() {
             </Button>
           )}
         </div>
+        {!servico.concluidoEm && pendenciasConclusao.length > 0 && (
+          <div className="mt-3 rounded-lg border border-destructive-tint-border bg-destructive-tint p-3">
+            <p className="mb-2 text-sm font-medium text-destructive-tint-foreground">
+              Responda e salve estas perguntas antes de concluir:
+            </p>
+            <PendenciasList pendencias={pendenciasConclusao} />
+          </div>
+        )}
       </div>
 
       {resultadoSalvo ? (
         <div className="space-y-4 rounded-lg border p-4">
-          <StatusBadge status={resultadoSalvo.status} />
-          {resultadoSalvo.status === "nao_liberado" ? (
-            <PendenciasList pendencias={resultadoSalvo.pendencias} />
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Todos os requisitos foram atendidos. Serviço liberado para execução.
-            </p>
+          <ServicoStatusBadge status={resultadoSalvo.status} concluido={!!servico.concluidoEm} />
+          {!servico.concluidoEm && (
+            resultadoSalvo.status === "nao_liberado" ? (
+              <PendenciasList pendencias={resultadoSalvo.pendencias} />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Todos os requisitos foram atendidos. Serviço liberado para execução.
+              </p>
+            )
           )}
           <div className="flex gap-2 pt-2">
             <Button variant="outline" onClick={() => setResultadoSalvo(null)}>
@@ -265,3 +287,4 @@ export default function ResponderFullKitPage() {
     </div>
   );
 }
+

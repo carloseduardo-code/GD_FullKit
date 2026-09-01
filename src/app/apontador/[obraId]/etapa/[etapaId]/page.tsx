@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, ListTree } from "lucide-react";
 import { useFullKitStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
 import { caminhoEtapa, progressoEtapa } from "@/lib/planejamento";
-import { ConcluidaBadge, StatusBadge } from "@/components/status-badge";
+import { ServicoStatusBadge } from "@/components/status-badge";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 export default function EtapaApontadorPage() {
@@ -77,8 +77,7 @@ export default function EtapaApontadorPage() {
                     <div className="flex-1 space-y-1.5">
                       <CardTitle className="text-sm font-medium">{servico.nome}</CardTitle>
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <StatusBadge status={resultado.status} />
-                        {servico.concluidoEm && <ConcluidaBadge />}
+                        <ServicoStatusBadge status={resultado.status} concluido={!!servico.concluidoEm} />
                       </div>
                     </div>
                     <ChevronRight className="size-4 text-muted-foreground shrink-0" />
@@ -96,3 +95,4 @@ export default function EtapaApontadorPage() {
     </div>
   );
 }
+
