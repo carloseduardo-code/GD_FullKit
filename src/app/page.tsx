@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ClipboardList, LayoutDashboard, Settings2, Users } from "lucide-react";
+import { ArrowUpRight, ClipboardList, LayoutDashboard, Settings2, Users } from "lucide-react";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AppHeader } from "@/components/app-header";
+import { AppShell } from "@/components/app-shell";
+import { PageHeader } from "@/components/page-header";
 import { useAuthStore } from "@/lib/store-auth";
 
 export default function Home() {
@@ -17,78 +18,92 @@ export default function Home() {
   const podeApontador = !logado || role === "god" || role === "administrador" || role === "apontador";
 
   return (
-    <div className="flex flex-1 flex-col">
-      <AppHeader />
-      <main className="flex flex-1 flex-col items-center justify-center gap-10 bg-gradient-to-b from-accent/30 via-background to-background p-6">
-        <div className="text-center space-y-3">
-          <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">FULL KIT</h1>
-          <p className="mx-auto max-w-lg text-lg text-muted-foreground">
-            Gestão da prontidão operacional da obra.
-          </p>
-        </div>
+    <AppShell section="Visão geral" contentClassName="max-w-6xl">
+      <div className="space-y-8">
+        <PageHeader
+          eyebrow="Painel operacional"
+          title={logado ? "Bem-vindo ao FULL KIT" : "Gestão da prontidão operacional"}
+          description="Acesse as áreas do sistema para configurar a operação, registrar apontamentos e acompanhar a evolução das obras."
+        />
 
-        <div className="grid w-full max-w-3xl gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {podeAdministrador && (
-            <Link href="/config">
-              <Card className="h-full transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md cursor-pointer">
-                <CardHeader className="space-y-2">
-                  <span className="flex size-10 items-center justify-center rounded-full bg-primary-tint">
-                    <Settings2 className="size-5 text-primary-tint-foreground" />
-                  </span>
-                  <CardTitle>Administrador</CardTitle>
+            <Link href="/config" className="group">
+              <Card className="h-full cursor-pointer transition-all hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-pop">
+                <CardHeader className="min-h-44 gap-4">
+                  <div className="flex items-start justify-between">
+                    <span className="flex size-11 items-center justify-center rounded-xl bg-primary-tint">
+                      <Settings2 className="size-5 text-primary-tint-foreground" />
+                    </span>
+                    <ArrowUpRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <CardTitle>Configuração</CardTitle>
                   <CardDescription>
                     Configurar obras, etapas, serviços notáveis e os checklists FULL KIT.
                   </CardDescription>
+                  </div>
                 </CardHeader>
               </Card>
             </Link>
           )}
 
           {podeApontador && (
-            <Link href="/apontador">
-              <Card className="h-full transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md cursor-pointer">
-                <CardHeader className="space-y-2">
-                  <span className="flex size-10 items-center justify-center rounded-full bg-primary-tint">
-                    <ClipboardList className="size-5 text-primary-tint-foreground" />
-                  </span>
-                  <CardTitle>Apontador</CardTitle>
-                  <CardDescription>
-                    Registrar em campo o FULL KIT de um serviço: responder o checklist, anexar fotos e salvar.
-                  </CardDescription>
+            <Link href="/apontador" className="group">
+              <Card className="h-full cursor-pointer transition-all hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-pop">
+                <CardHeader className="min-h-44 gap-4">
+                  <div className="flex items-start justify-between">
+                    <span className="flex size-11 items-center justify-center rounded-xl bg-primary-tint">
+                      <ClipboardList className="size-5 text-primary-tint-foreground" />
+                    </span>
+                    <ArrowUpRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <CardTitle>Apontamentos</CardTitle>
+                    <CardDescription>Registrar em campo o FULL KIT de cada serviço e acompanhar pendências.</CardDescription>
+                  </div>
                 </CardHeader>
               </Card>
             </Link>
           )}
 
-          <Link href="/gestao">
-            <Card className="h-full transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md cursor-pointer">
-              <CardHeader className="space-y-2">
-                <span className="flex size-10 items-center justify-center rounded-full bg-primary-tint">
-                  <LayoutDashboard className="size-5 text-primary-tint-foreground" />
-                </span>
-                <CardTitle>Gestão / Consulta</CardTitle>
-                <CardDescription>
-                  Acompanhar a prontidão da obra: status, pendências, FULL KIT preenchido e histórico por elemento.
-                </CardDescription>
+          <Link href="/gestao" className="group">
+            <Card className="h-full cursor-pointer transition-all hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-pop">
+              <CardHeader className="min-h-44 gap-4">
+                <div className="flex items-start justify-between">
+                  <span className="flex size-11 items-center justify-center rounded-xl bg-primary-tint">
+                    <LayoutDashboard className="size-5 text-primary-tint-foreground" />
+                  </span>
+                  <ArrowUpRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary" />
+                </div>
+                <div className="space-y-1.5">
+                  <CardTitle>Gestão e consulta</CardTitle>
+                  <CardDescription>Acompanhar status, pendências, avanço físico e prontidão por obra.</CardDescription>
+                </div>
               </CardHeader>
             </Card>
           </Link>
 
           {role === "god" && (
-            <Link href="/usuarios">
-              <Card className="h-full transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md cursor-pointer">
-                <CardHeader className="space-y-2">
-                  <span className="flex size-10 items-center justify-center rounded-full bg-primary-tint">
-                    <Users className="size-5 text-primary-tint-foreground" />
-                  </span>
-                  <CardTitle>Usuários</CardTitle>
-                  <CardDescription>Criar e acompanhar acessos de Administrador e Apontador.</CardDescription>
+            <Link href="/usuarios" className="group">
+              <Card className="h-full cursor-pointer transition-all hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-pop">
+                <CardHeader className="min-h-44 gap-4">
+                  <div className="flex items-start justify-between">
+                    <span className="flex size-11 items-center justify-center rounded-xl bg-primary-tint">
+                      <Users className="size-5 text-primary-tint-foreground" />
+                    </span>
+                    <ArrowUpRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <CardTitle>Usuários</CardTitle>
+                    <CardDescription>Criar e acompanhar acessos de Administrador e Apontador.</CardDescription>
+                  </div>
                 </CardHeader>
               </Card>
             </Link>
           )}
         </div>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }

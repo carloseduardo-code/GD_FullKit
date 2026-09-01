@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ChevronLeft, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useAuthStore, ROLE_LABEL } from "@/lib/store-auth";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { PageHeader } from "@/components/page-header";
 
 export default function ContaPage() {
   const router = useRouter();
@@ -85,23 +85,23 @@ export default function ContaPage() {
       .join("") || "?";
 
   return (
-    <div className="max-w-lg space-y-6">
-      <Link href="/" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ChevronLeft className="size-4" />
-        Voltar
-      </Link>
+    <div className="space-y-6 md:space-y-8">
+      <PageHeader
+        eyebrow="Perfil e segurança"
+        title={profile?.nome || "Minha conta"}
+        description={profile ? `Usuário: ${profile.username}` : "Gerencie seus dados de acesso."}
+        actions={
+          <div className="flex items-center gap-2">
+            {profile && <Badge variant="secondary">{ROLE_LABEL[profile.role]}</Badge>}
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-card">
+              {iniciais}
+            </span>
+          </div>
+        }
+      />
 
-      <div className="flex items-center gap-3">
-        <span className="flex size-13 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
-          {iniciais}
-        </span>
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Minha conta</h1>
-          {profile && <Badge variant="secondary">{ROLE_LABEL[profile.role]}</Badge>}
-        </div>
-      </div>
-
-      <Card>
+      <div className="grid items-start gap-5 md:grid-cols-2">
+      <Card className="h-full">
         <CardHeader>
           <CardTitle className="text-base">Perfil</CardTitle>
           <CardDescription>Usuário: {profile?.username}</CardDescription>
@@ -112,14 +112,14 @@ export default function ContaPage() {
               <Label htmlFor="nome">Nome</Label>
               <Input id="nome" value={nome} onChange={(e) => setNome(e.target.value)} />
             </div>
-            <Button type="submit" size="sm" disabled={salvandoNome || !nome.trim() || nome.trim() === profile?.nome}>
+            <Button type="submit" className="w-full sm:w-auto" disabled={salvandoNome || !nome.trim() || nome.trim() === profile?.nome}>
               Salvar nome
             </Button>
           </form>
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="h-full">
         <CardHeader>
           <CardTitle className="text-base">Trocar senha</CardTitle>
           <CardDescription>Use pelo menos 6 caracteres.</CardDescription>
@@ -146,16 +146,17 @@ export default function ContaPage() {
                 onChange={(e) => setConfirmarSenha(e.target.value)}
               />
             </div>
-            <Button type="submit" size="sm" variant="outline" disabled={salvandoSenha || !novaSenha}>
+            <Button type="submit" className="w-full sm:w-auto" variant="outline" disabled={salvandoSenha || !novaSenha}>
               Atualizar senha
             </Button>
           </form>
         </CardContent>
       </Card>
+      </div>
 
       <Separator />
 
-      <Button variant="destructive" onClick={handleSair}>
+      <Button variant="destructive" className="w-full sm:w-auto" onClick={handleSair}>
         <LogOut data-icon="inline-start" />
         Sair da conta
       </Button>
