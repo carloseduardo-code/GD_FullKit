@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { PageHeader } from "@/components/page-header";
 import type { Obra } from "@/lib/types";
 
 export default function ObrasPage() {
@@ -161,79 +162,125 @@ export default function ObrasPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Obras</h1>
-        <p className="text-muted-foreground">Selecione uma obra para configurar ou cadastre uma nova.</p>
-      </div>
-
-      <Link href="/config/full-kits" className={buttonVariants({ variant: "outline", className: "h-auto justify-start p-4" })}>
-        <ClipboardList className="size-4" />
-        <div className="text-left">
-          <div className="font-medium">Catálogo de FULL KITs</div>
-          <div className="text-xs font-normal text-muted-foreground">
-            Checklists padrão, cadastrados uma vez e usados ao montar o fluxo de qualquer obra
-          </div>
-        </div>
-      </Link>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        {obras.map((obra) => (
-          <Link key={obra.id} href={`/config/${obra.id}`}>
-            <Card className="h-full transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md cursor-pointer">
-              <CardHeader className="flex-row items-start justify-between space-y-0">
-                <div className="space-y-1.5">
-                  <span className="flex size-9 items-center justify-center rounded-full bg-primary-tint">
-                    <Building2 className="size-4 text-primary-tint-foreground" />
-                  </span>
-                  <CardTitle>{obra.nome}</CardTitle>
-                  <CardDescription>{obra.endereco || "Sem endereço cadastrado"}</CardDescription>
-                </div>
-                <div className="flex gap-1 shrink-0">
-                  <Button variant="ghost" size="icon-sm" onClick={(e) => abrirEdicao(e, obra)}>
-                    <Pencil className="size-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon-sm" onClick={(e) => abrirDuplicacao(e, obra)} title="Duplicar">
-                    <Copy className="size-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="text-muted-foreground hover:text-destructive"
-                    onClick={(e) => abrirExclusao(e, obra)}
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                </div>
-              </CardHeader>
-            </Card>
+    <div className="space-y-6 md:space-y-8">
+      <PageHeader
+        eyebrow="Administração"
+        title="Obras"
+        description="Configure a estrutura das obras ou cadastre um novo ambiente operacional."
+        actions={
+          <Link href="/config/full-kits" className={buttonVariants({ variant: "outline" })}>
+            <ClipboardList className="size-4" />
+            Catálogo de FULL KITs
           </Link>
-        ))}
-      </div>
+        }
+      />
 
-      <Card className="max-w-md">
-        <CardHeader>
-          <CardTitle className="text-base">Nova obra</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-1.5">
-            <Input
-              placeholder="Nome da obra"
-              value={nome}
-              onChange={(e) => {
-                setNome(e.target.value);
-                setErroNome(null);
-              }}
-            />
-            {erroNome && <p className="text-xs text-destructive">{erroNome}</p>}
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <section className="min-w-0 space-y-4" aria-labelledby="obras-cadastradas">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 id="obras-cadastradas" className="font-semibold tracking-tight">Obras cadastradas</h2>
+              <p className="text-xs text-muted-foreground">
+                {obras.length} obra{obras.length === 1 ? " disponível" : "s disponíveis"}
+              </p>
+            </div>
           </div>
-          <Input placeholder="Endereço" value={endereco} onChange={(e) => setEndereco(e.target.value)} />
-          <Button onClick={handleCriar} disabled={!nome.trim()}>
-            <Plus data-icon="inline-start" />
-            Cadastrar obra
-          </Button>
-        </CardContent>
-      </Card>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {obras.length === 0 && (
+              <div className="rounded-xl border border-dashed bg-card p-8 text-center sm:col-span-2">
+                <Building2 className="mx-auto mb-3 size-6 text-muted-foreground" />
+                <p className="text-sm font-medium">Nenhuma obra cadastrada</p>
+                <p className="mt-1 text-xs text-muted-foreground">Use o formulário ao lado para começar.</p>
+              </div>
+            )}
+            {obras.map((obra) => (
+              <Link key={obra.id} href={`/config/${obra.id}`} className="group">
+                <Card className="h-full cursor-pointer transition-all hover:border-primary/60 hover:shadow-card">
+                  <CardHeader className="flex-row items-start justify-between space-y-0">
+                    <div className="min-w-0 space-y-2">
+                      <span className="flex size-10 items-center justify-center rounded-xl bg-primary-tint">
+                        <Building2 className="size-[18px] text-primary-tint-foreground" />
+                      </span>
+                      <div className="space-y-1">
+                        <CardTitle className="truncate">{obra.nome}</CardTitle>
+                        <CardDescription className="line-clamp-2 text-xs">
+                          {obra.endereco || "Endereço não cadastrado"}
+                        </CardDescription>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 gap-0.5">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={(e) => abrirEdicao(e, obra)}
+                        title="Editar obra"
+                        aria-label={`Editar ${obra.nome}`}
+                      >
+                        <Pencil className="size-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={(e) => abrirDuplicacao(e, obra)}
+                        title="Duplicar obra"
+                        aria-label={`Duplicar ${obra.nome}`}
+                      >
+                        <Copy className="size-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={(e) => abrirExclusao(e, obra)}
+                        title="Excluir obra"
+                        aria-label={`Excluir ${obra.nome}`}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </div>
+                  </CardHeader>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <Card className="lg:sticky lg:top-24">
+          <CardHeader>
+            <CardTitle className="text-base">Nova obra</CardTitle>
+            <CardDescription>Cadastre o ambiente antes de montar etapas e serviços.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="nova-obra-nome">Nome da obra</Label>
+              <Input
+                id="nova-obra-nome"
+                placeholder="Ex.: Torre Norte"
+                value={nome}
+                onChange={(e) => {
+                  setNome(e.target.value);
+                  setErroNome(null);
+                }}
+              />
+              {erroNome && <p className="text-xs text-destructive">{erroNome}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="nova-obra-endereco">Endereço</Label>
+              <Input
+                id="nova-obra-endereco"
+                placeholder="Endereço da obra"
+                value={endereco}
+                onChange={(e) => setEndereco(e.target.value)}
+              />
+            </div>
+            <Button className="w-full" onClick={handleCriar} disabled={!nome.trim()}>
+              <Plus data-icon="inline-start" />
+              Cadastrar obra
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
 
       <Dialog open={editingObra !== null} onOpenChange={(open) => !open && setEditingObra(null)}>
         <DialogContent>

@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
 
 function iniciaisDe(nome: string): string {
   return (
@@ -89,15 +90,18 @@ export default function UsuariosPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Usuários</h1>
-        <p className="text-muted-foreground">Crie acessos de Administrador ou Apontador para a equipe.</p>
-      </div>
+    <div className="space-y-6 md:space-y-8">
+      <PageHeader
+        eyebrow="Controle de acesso"
+        title="Usuários"
+        description="Crie acessos e consulte os perfis habilitados para operar o sistema."
+      />
 
-      <Card className="max-w-md">
+      <div className="grid items-start gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
+      <Card className="lg:sticky lg:top-24">
         <CardHeader>
           <CardTitle className="text-base">Novo usuário</CardTitle>
+          <CardDescription>Defina os dados de acesso e o nível de permissão.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleCriar} className="space-y-3">
@@ -147,7 +151,7 @@ export default function UsuariosPage() {
               </div>
             </div>
             {erro && <p className="text-xs text-destructive">{erro}</p>}
-            <Button type="submit" disabled={criando}>
+            <Button type="submit" className="w-full" disabled={criando}>
               {criando ? <Loader2 data-icon="inline-start" className="animate-spin" /> : <UserPlus data-icon="inline-start" />}
               Criar usuário
             </Button>
@@ -157,10 +161,10 @@ export default function UsuariosPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Todos os usuários</CardTitle>
+          <CardTitle className="text-base">Equipe cadastrada</CardTitle>
           <CardDescription>{usuarios.length} usuário{usuarios.length === 1 ? "" : "s"} cadastrado{usuarios.length === 1 ? "" : "s"}.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-x-auto">
           {carregando ? (
             <div className="flex justify-center py-6">
               <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -196,6 +200,7 @@ export default function UsuariosPage() {
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
