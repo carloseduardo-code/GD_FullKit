@@ -9,7 +9,7 @@ import { useFullKitStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
 import { caminhoEtapa } from "@/lib/planejamento";
 import { formatarDataHora } from "@/lib/utils";
-import { ConcluidaBadge, StatusBadge } from "@/components/status-badge";
+import { ServicoStatusBadge } from "@/components/status-badge";
 import { PendenciasList } from "@/components/pendencias-list";
 import { FullKitForm } from "@/components/full-kit-form";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -72,8 +72,7 @@ export default function ServicoGestaoPage() {
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge status={resultado.status} />
-            {servico.concluidoEm && <ConcluidaBadge />}
+            <ServicoStatusBadge status={resultado.status} concluido={!!servico.concluidoEm} />
             {ultimo && (
               <p className="text-xs text-muted-foreground">
                 Atualizado por {ultimo.autor} em {formatarDataHora(ultimo.criadoEm)}
@@ -98,7 +97,9 @@ export default function ServicoGestaoPage() {
           ) : (
             <>
               <FullKitForm perguntas={perguntas} mode="consulta" respostas={respostas} fotos={ultimo.fotos} />
-              {resultado.status === "nao_liberado" && <PendenciasList pendencias={resultado.pendencias} />}
+              {!servico.concluidoEm && resultado.status === "nao_liberado" && (
+                <PendenciasList pendencias={resultado.pendencias} />
+              )}
               {ultimo.observacoes && (
                 <div className="space-y-1">
                   <p className="text-xs font-medium text-muted-foreground">Observações</p>
@@ -121,3 +122,4 @@ export default function ServicoGestaoPage() {
     </div>
   );
 }
+

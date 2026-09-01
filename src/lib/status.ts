@@ -6,6 +6,16 @@ import type {
   StatusResultado,
 } from "@/lib/types";
 
+export class ConclusaoBloqueadaError extends Error {
+  readonly pendencias: Pendencia[];
+
+  constructor(pendencias: Pendencia[]) {
+    super("O serviço só pode ser concluído após o Full Kit atender todos os requisitos obrigatórios.");
+    this.name = "ConclusaoBloqueadaError";
+    this.pendencias = pendencias;
+  }
+}
+
 function respostaAtende(pergunta: Pergunta, resposta: Resposta | undefined, fotos: string[]): boolean {
   if (pergunta.tipo === "foto") {
     return fotos.length > 0;
@@ -48,3 +58,4 @@ export function calcularStatus(
     pendencias,
   };
 }
+

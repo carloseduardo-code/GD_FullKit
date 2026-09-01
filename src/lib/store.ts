@@ -13,7 +13,7 @@ import type {
   StatusResultado,
   TipoPergunta,
 } from "@/lib/types";
-import { calcularStatus } from "@/lib/status";
+import { calcularStatus, ConclusaoBloqueadaError } from "@/lib/status";
 import { descendentes } from "@/lib/planejamento";
 import { planejarReplicacao } from "@/lib/replicacao";
 import { nomeDuplicado } from "@/lib/utils";
@@ -666,6 +666,10 @@ export const useFullKitStore = create<FullKitState>()((set, get) => ({
     return resultado.servicos[0];
   },
   marcarConcluido: async (servicoId) => {
+    const resultado = get().getStatusServico(servicoId);
+    if (resultado.status !== "liberado") {
+      throw new ConclusaoBloqueadaError(resultado.pendencias);
+    }
     await get().updateServico(servicoId, { concluidoEm: new Date().toISOString() });
   },
   desmarcarConcluido: async (servicoId) => {
@@ -1009,9 +1013,16 @@ export const useFullKitStore = create<FullKitState>()((set, get) => ({
   },
 
   getUltimoApontamento: (servicoId) => {
-    const doServico = get().apontamentos.filter((a) => a.servicoId === servicoId);
-    if (doServico.length === 0) return undefined;
-    return doServico.reduce((mais, atual) => (atual.criadoEm > mais.criadoEm ? atual : mais));
+    let ultimo: Apontamento | undefined;
+    for (const apontamento of get().apontamentos) {
+      if (
+        apontamento.servicoId === servicoId &&
+        (!ultimo || apontamento.criadoEm > ultimo.criadoEm)
+      ) {
+        ultimo = apontamento;
+      }
+    }
+    return ultimo;
   },
 
   getStatusServico: (servicoId) => {
@@ -1020,3 +1031,4 @@ export const useFullKitStore = create<FullKitState>()((set, get) => ({
     return calcularStatus(perguntas, ultimo);
   },
 }));
+
