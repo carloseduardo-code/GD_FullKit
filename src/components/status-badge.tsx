@@ -74,11 +74,11 @@ const CONFIG_ETAPA: Record<SituacaoEtapa, { label: string; className: string }> 
   },
   liberada: {
     label: "Liberada",
-    className: "bg-primary-tint text-primary-tint-foreground border-primary-tint-border",
+    className: "bg-primary text-primary-foreground border-primary shadow-sm",
   },
   concluida: {
     label: "Concluída",
-    className: "bg-primary text-primary-foreground border-transparent",
+    className: "bg-foreground text-background border-foreground",
   },
 };
 
@@ -92,7 +92,9 @@ export function SituacaoEtapaBadge({
   const config = CONFIG_ETAPA[situacao];
   return (
     <Badge variant="outline" className={cn(config.className, "font-medium", className)}>
-      {situacao === "concluida" && <CheckCircle2 data-icon="inline-start" className="size-3" />}
+      {(situacao === "liberada" || situacao === "concluida") && (
+        <CheckCircle2 data-icon="inline-start" className="size-3" />
+      )}
       {config.label}
     </Badge>
   );
