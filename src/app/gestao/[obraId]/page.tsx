@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
-import { AlertTriangle, ChevronRight, Clock } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronRight, Clock, ListFilter } from "lucide-react";
 import { useFullKitStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -19,6 +20,7 @@ import {
 import { SituacaoEtapaBadge } from "@/components/status-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const CORES_SITUACAO: Record<SituacaoEtapa, string> = {
@@ -37,8 +39,19 @@ const ROTULOS_SITUACAO: Record<SituacaoEtapa, (total: number) => string> = {
   concluida: (n) => (n === 1 ? "concluída" : "concluídas"),
 };
 
+type FiltroSituacao = "todas" | SituacaoEtapa;
+
+const ORDEM_FILTROS: SituacaoEtapa[] = [
+  "liberada",
+  "em_andamento",
+  "nao_iniciada",
+  "nao_liberada",
+  "concluida",
+];
+
 export default function PainelGestorPage() {
   const { obraId } = useParams<{ obraId: string }>();
+  const [filtroSituacao, setFiltroSituacao] = useState<FiltroSituacao>("todas");
   const obra = useFullKitStore((s) => s.obras.find((o) => o.id === obraId));
   const etapas = useFullKitStore(useShallow((s) => s.etapas.filter((e) => e.obraId === obraId)));
   const servicos = useFullKitStore((s) => s.servicos);
@@ -75,15 +88,24 @@ export default function PainelGestorPage() {
 
   const contagem = (situacao: SituacaoEtapa) =>
     etapasComStatus.filter((e) => e.situacao === situacao).length;
-  const resumo: { situacao: SituacaoEtapa; total: number }[] = (
-    ["nao_iniciada", "em_andamento", "nao_liberada", "liberada", "concluida"] as const
-  )
+  const resumo: { situacao: SituacaoEtapa; total: number }[] = ORDEM_FILTROS
     .map((situacao) => ({ situacao, total: contagem(situacao) }))
-    .filter((item) => item.total > 0);
+    .filter((item) => item.total > 0 || item.situacao === "liberada" || item.situacao === "em_andamento");
   const nBloqueadas = etapasComStatus.filter((e) => !e.liberada).length;
   const totalPendencias = etapasComStatus.reduce((acc, e) => acc + e.progresso.pendencias, 0);
 
-  const gargalos = etapasComStatus.filter((e) => e.atrasada || e.progresso.pendencias > 0);
+  const etapasFiltradas =
+    filtroSituacao === "todas"
+      ? etapasComStatus
+      : etapasComStatus.filter((item) => item.situacao === filtroSituacao);
+  const idsEtapasFiltradas = new Set(etapasFiltradas.map((item) => item.etapa.id));
+  const gargalos = etapasComStatus.filter(
+    (e) => idsEtapasFiltradas.has(e.etapa.id) && (e.atrasada || e.progresso.pendencias > 0)
+  );
+
+  function selecionarFiltro(filtro: FiltroSituacao) {
+    setFiltroSituacao((atual) => (atual === filtro && filtro !== "todas" ? "todas" : filtro));
+  }
 
   return (
     <div className="space-y-8">
@@ -103,15 +125,49 @@ export default function PainelGestorPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2.5">
+      <div className="flex flex-wrap items-center gap-2.5" aria-label="Filtros do fluxo executivo">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          aria-pressed={filtroSituacao === "todas"}
+          onClick={() => selecionarFiltro("todas")}
+          className={cn(
+            "h-auto rounded-full px-3 py-1.5",
+            filtroSituacao === "todas" && "border-foreground bg-foreground text-background hover:bg-foreground/90"
+          )}
+        >
+          <ListFilter data-icon="inline-start" />
+          Todas
+          <span className="tabular-nums opacity-70">{etapasComStatus.length}</span>
+        </Button>
         {resumo.map(({ situacao, total }) => (
-          <span
+          <Button
             key={situacao}
-            className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs font-medium"
+            type="button"
+            variant="outline"
+            size="sm"
+            aria-pressed={filtroSituacao === situacao}
+            onClick={() => selecionarFiltro(situacao)}
+            className={cn(
+              "h-auto rounded-full px-3 py-1.5",
+              situacao === "liberada" &&
+                "border-primary/50 bg-primary-tint text-primary-tint-foreground hover:border-primary hover:bg-primary-tint",
+              filtroSituacao === situacao &&
+                situacao !== "liberada" &&
+                "border-foreground bg-foreground text-background hover:bg-foreground/90",
+              filtroSituacao === "liberada" &&
+                situacao === "liberada" &&
+                "border-primary bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
+            )}
           >
-            <span className={cn("size-1.5 rounded-full", CORES_SITUACAO[situacao])} />
+            {situacao === "liberada" ? (
+              <CheckCircle2 data-icon="inline-start" />
+            ) : (
+              <span className={cn("size-1.5 rounded-full", CORES_SITUACAO[situacao])} />
+            )}
             {total} {ROTULOS_SITUACAO[situacao](total)}
-          </span>
+          </Button>
         ))}
         {nBloqueadas > 0 && (
           <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs font-medium">
@@ -161,16 +217,36 @@ export default function PainelGestorPage() {
       )}
 
       <div className="space-y-3">
-        <h2 className="font-medium">Fluxo executivo</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-medium">Fluxo executivo</h2>
+          <p className="text-xs text-muted-foreground">
+            Exibindo {etapasFiltradas.length} de {etapasComStatus.length} etapa
+            {etapasComStatus.length === 1 ? "" : "s"}
+          </p>
+        </div>
         <div className="space-y-2">
           {etapasComStatus.length === 0 && (
             <p className="text-sm text-muted-foreground">Nenhuma etapa cadastrada nesta obra.</p>
           )}
-          {etapasComStatus.map(({ etapa, situacao, liberada, atrasada, pendentes }) => {
+          {etapasComStatus.length > 0 && etapasFiltradas.length === 0 && (
+            <div className="rounded-xl border border-dashed bg-card px-5 py-8 text-center">
+              <p className="text-sm font-medium">Nenhuma etapa encontrada neste status.</p>
+              <p className="mt-1 text-xs text-muted-foreground">Selecione outro indicador para continuar.</p>
+              <Button className="mt-4" size="sm" variant="outline" onClick={() => selecionarFiltro("todas")}>
+                Mostrar todas
+              </Button>
+            </div>
+          )}
+          {etapasFiltradas.map(({ etapa, situacao, liberada, atrasada, pendentes }) => {
             const servicosDaEtapa = servicosDoSubtree(etapa.id, etapas, servicos);
             return (
               <Link key={etapa.id} href={`/gestao/${obraId}/etapa/${etapa.id}`}>
-                <Card className="transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md cursor-pointer">
+                <Card
+                  className={cn(
+                    "cursor-pointer transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md",
+                    situacao === "liberada" && "border-primary/50 bg-primary-tint/30 shadow-sm"
+                  )}
+                >
                   <CardHeader className="flex-row items-center gap-3 space-y-0">
                     <div className="flex-1 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
@@ -189,21 +265,31 @@ export default function PainelGestorPage() {
                           {servicosDaEtapa.map((servico) => {
                             const concluida = !!servico.concluidoEm;
                             const status = getStatusServico(servico.id).status;
+                            const servicoLiberado = !concluida && status === "liberado";
                             return (
                               <span
                                 key={servico.id}
-                                className="inline-flex items-center gap-1.5 rounded-full border bg-background px-2 py-0.5 text-xs text-muted-foreground"
+                                className={cn(
+                                  "inline-flex items-center gap-1.5 rounded-full border bg-background px-2 py-0.5 text-xs text-muted-foreground",
+                                  servicoLiberado &&
+                                    "border-primary/40 bg-primary-tint text-primary-tint-foreground shadow-sm"
+                                )}
                               >
                                 <span
                                   className={cn(
                                     "size-1.5 shrink-0 rounded-full",
                                     concluida && "bg-primary",
-                                    !concluida && status === "liberado" && "bg-primary/40",
+                                    servicoLiberado && "bg-primary",
                                     !concluida && status === "nao_liberado" && "bg-destructive",
                                     !concluida && status === "nao_iniciado" && "bg-muted-foreground/40"
                                   )}
                                 />
                                 {servico.nome}
+                                {servicoLiberado && (
+                                  <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary-foreground">
+                                    Liberado
+                                  </span>
+                                )}
                               </span>
                             );
                           })}
