@@ -15,43 +15,43 @@ import {
   servicosDoSubtree,
   situacaoEtapa,
   type ProgressoEtapa,
-  type SituacaoEtapa,
 } from "@/lib/planejamento";
 import { SituacaoEtapaBadge } from "@/components/status-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { ServicoNotavel, StatusServico } from "@/lib/types";
 
-const CORES_SITUACAO: Record<SituacaoEtapa, string> = {
-  nao_iniciada: "bg-muted-foreground/40",
-  em_andamento: "bg-primary/40",
-  nao_liberada: "bg-destructive",
-  liberada: "bg-primary/70",
-  concluida: "bg-primary",
-};
+type SituacaoServicoFiltro = "liberado" | "em_andamento" | "nao_iniciado" | "concluido";
+type FiltroServico = "todos" | SituacaoServicoFiltro;
 
-const ROTULOS_SITUACAO: Record<SituacaoEtapa, (total: number) => string> = {
-  nao_iniciada: (n) => (n === 1 ? "não iniciada" : "não iniciadas"),
+const ROTULOS_SERVICO: Record<SituacaoServicoFiltro, (total: number) => string> = {
+  liberado: (n) => (n === 1 ? "liberado" : "liberados"),
   em_andamento: () => "em andamento",
-  nao_liberada: (n) => (n === 1 ? "não liberada" : "não liberadas"),
-  liberada: (n) => (n === 1 ? "liberada" : "liberadas"),
-  concluida: (n) => (n === 1 ? "concluída" : "concluídas"),
+  nao_iniciado: (n) => (n === 1 ? "não iniciado" : "não iniciados"),
+  concluido: (n) => (n === 1 ? "concluído" : "concluídos"),
 };
 
-type FiltroSituacao = "todas" | SituacaoEtapa;
+const CORES_SERVICO: Record<SituacaoServicoFiltro, string> = {
+  liberado: "bg-primary",
+  em_andamento: "bg-destructive",
+  nao_iniciado: "bg-muted-foreground/40",
+  concluido: "bg-foreground",
+};
 
-const ORDEM_FILTROS: SituacaoEtapa[] = [
-  "liberada",
-  "em_andamento",
-  "nao_iniciada",
-  "nao_liberada",
-  "concluida",
-];
+const ORDEM_FILTROS: SituacaoServicoFiltro[] = ["liberado", "em_andamento", "nao_iniciado", "concluido"];
+
+function situacaoDoServico(servico: ServicoNotavel, status: StatusServico): SituacaoServicoFiltro {
+  if (servico.concluidoEm) return "concluido";
+  if (status === "liberado") return "liberado";
+  if (status === "nao_liberado") return "em_andamento";
+  return "nao_iniciado";
+}
 
 export default function PainelGestorPage() {
   const { obraId } = useParams<{ obraId: string }>();
-  const [filtroSituacao, setFiltroSituacao] = useState<FiltroSituacao>("todas");
+  const [filtroServico, setFiltroServico] = useState<FiltroServico>("todos");
   const obra = useFullKitStore((s) => s.obras.find((o) => o.id === obraId));
   const etapas = useFullKitStore(useShallow((s) => s.etapas.filter((e) => e.obraId === obraId)));
   const servicos = useFullKitStore((s) => s.servicos);
@@ -83,28 +83,45 @@ export default function PainelGestorPage() {
     const situacao = situacaoEtapa(progresso);
     const atrasada = etapaAtrasada(janela, progresso);
     const pendentes = predecessorasPendentes(etapa, etapas, progressoPorEtapaId);
-    return { etapa, progresso, janela, liberada, situacao, atrasada, pendentes };
+    const servicosDaEtapa = servicosDoSubtree(etapa.id, etapas, servicos);
+    return { etapa, progresso, janela, liberada, situacao, atrasada, pendentes, servicosDaEtapa };
   });
 
-  const contagem = (situacao: SituacaoEtapa) =>
-    etapasComStatus.filter((e) => e.situacao === situacao).length;
-  const resumo: { situacao: SituacaoEtapa; total: number }[] = ORDEM_FILTROS
-    .map((situacao) => ({ situacao, total: contagem(situacao) }))
-    .filter((item) => item.total > 0 || item.situacao === "liberada" || item.situacao === "em_andamento");
+  const servicosDaObra = Array.from(
+    new Map(etapasComStatus.flatMap((item) => item.servicosDaEtapa).map((servico) => [servico.id, servico])).values()
+  );
+  const statusPorServicoId = new Map(
+    servicosDaObra.map((servico) => {
+      const status = getStatusServico(servico.id).status;
+      return [servico.id, { status, situacao: situacaoDoServico(servico, status) }] as const;
+    })
+  );
+  const contagem = (situacao: SituacaoServicoFiltro) =>
+    servicosDaObra.filter((servico) => statusPorServicoId.get(servico.id)?.situacao === situacao).length;
+  const resumo = ORDEM_FILTROS.map((situacao) => ({ situacao, total: contagem(situacao) }));
   const nBloqueadas = etapasComStatus.filter((e) => !e.liberada).length;
   const totalPendencias = etapasComStatus.reduce((acc, e) => acc + e.progresso.pendencias, 0);
 
-  const etapasFiltradas =
-    filtroSituacao === "todas"
-      ? etapasComStatus
-      : etapasComStatus.filter((item) => item.situacao === filtroSituacao);
-  const idsEtapasFiltradas = new Set(etapasFiltradas.map((item) => item.etapa.id));
-  const gargalos = etapasComStatus.filter(
-    (e) => idsEtapasFiltradas.has(e.etapa.id) && (e.atrasada || e.progresso.pendencias > 0)
-  );
+  const etapasFiltradas = etapasComStatus
+    .map((item) => ({
+      ...item,
+      servicosDaEtapa:
+        filtroServico === "todos"
+          ? item.servicosDaEtapa
+          : item.servicosDaEtapa.filter(
+              (servico) => statusPorServicoId.get(servico.id)?.situacao === filtroServico
+            ),
+    }))
+    .filter((item) => filtroServico === "todos" || item.servicosDaEtapa.length > 0);
+  const totalServicosFiltrados =
+    filtroServico === "todos" ? servicosDaObra.length : contagem(filtroServico);
+  const gargalos =
+    filtroServico === "todos"
+      ? etapasComStatus.filter((e) => e.atrasada || e.progresso.pendencias > 0)
+      : [];
 
-  function selecionarFiltro(filtro: FiltroSituacao) {
-    setFiltroSituacao((atual) => (atual === filtro && filtro !== "todas" ? "todas" : filtro));
+  function selecionarFiltro(filtro: FiltroServico) {
+    setFiltroServico((atual) => (atual === filtro && filtro !== "todos" ? "todos" : filtro));
   }
 
   return (
@@ -130,16 +147,16 @@ export default function PainelGestorPage() {
           type="button"
           variant="outline"
           size="sm"
-          aria-pressed={filtroSituacao === "todas"}
-          onClick={() => selecionarFiltro("todas")}
+          aria-pressed={filtroServico === "todos"}
+          onClick={() => selecionarFiltro("todos")}
           className={cn(
             "h-auto rounded-full px-3 py-1.5",
-            filtroSituacao === "todas" && "border-foreground bg-foreground text-background hover:bg-foreground/90"
+            filtroServico === "todos" && "border-foreground bg-foreground text-background hover:bg-foreground/90"
           )}
         >
           <ListFilter data-icon="inline-start" />
-          Todas
-          <span className="tabular-nums opacity-70">{etapasComStatus.length}</span>
+          Todos
+          <span className="tabular-nums opacity-70">{servicosDaObra.length}</span>
         </Button>
         {resumo.map(({ situacao, total }) => (
           <Button
@@ -147,32 +164,32 @@ export default function PainelGestorPage() {
             type="button"
             variant="outline"
             size="sm"
-            aria-pressed={filtroSituacao === situacao}
+            aria-pressed={filtroServico === situacao}
             onClick={() => selecionarFiltro(situacao)}
             className={cn(
               "h-auto rounded-full px-3 py-1.5",
-              situacao === "liberada" &&
+              situacao === "liberado" &&
                 "border-primary/50 bg-primary-tint text-primary-tint-foreground hover:border-primary hover:bg-primary-tint",
-              filtroSituacao === situacao &&
-                situacao !== "liberada" &&
+              filtroServico === situacao &&
+                situacao !== "liberado" &&
                 "border-foreground bg-foreground text-background hover:bg-foreground/90",
-              filtroSituacao === "liberada" &&
-                situacao === "liberada" &&
+              filtroServico === "liberado" &&
+                situacao === "liberado" &&
                 "border-primary bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
             )}
           >
-            {situacao === "liberada" ? (
+            {situacao === "liberado" ? (
               <CheckCircle2 data-icon="inline-start" />
             ) : (
-              <span className={cn("size-1.5 rounded-full", CORES_SITUACAO[situacao])} />
+              <span className={cn("size-1.5 rounded-full", CORES_SERVICO[situacao])} />
             )}
-            {total} {ROTULOS_SITUACAO[situacao](total)}
+            {total} {ROTULOS_SERVICO[situacao](total)}
           </Button>
         ))}
         {nBloqueadas > 0 && (
           <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs font-medium">
             <span className="size-1.5 rounded-full bg-muted-foreground/40" />
-            {nBloqueadas} bloqueada{nBloqueadas === 1 ? "" : "s"} por predecessora
+            {nBloqueadas} etapa{nBloqueadas === 1 ? "" : "s"} bloqueada{nBloqueadas === 1 ? "" : "s"}
           </span>
         )}
         {totalPendencias > 0 && (
@@ -220,25 +237,24 @@ export default function PainelGestorPage() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-medium">Fluxo executivo</h2>
           <p className="text-xs text-muted-foreground">
-            Exibindo {etapasFiltradas.length} de {etapasComStatus.length} etapa
-            {etapasComStatus.length === 1 ? "" : "s"}
+            Exibindo {totalServicosFiltrados} de {servicosDaObra.length} serviço
+            {servicosDaObra.length === 1 ? "" : "s"}
           </p>
         </div>
         <div className="space-y-2">
           {etapasComStatus.length === 0 && (
             <p className="text-sm text-muted-foreground">Nenhuma etapa cadastrada nesta obra.</p>
           )}
-          {etapasComStatus.length > 0 && etapasFiltradas.length === 0 && (
+          {servicosDaObra.length > 0 && etapasFiltradas.length === 0 && (
             <div className="rounded-xl border border-dashed bg-card px-5 py-8 text-center">
-              <p className="text-sm font-medium">Nenhuma etapa encontrada neste status.</p>
+              <p className="text-sm font-medium">Nenhum serviço encontrado neste status.</p>
               <p className="mt-1 text-xs text-muted-foreground">Selecione outro indicador para continuar.</p>
-              <Button className="mt-4" size="sm" variant="outline" onClick={() => selecionarFiltro("todas")}>
-                Mostrar todas
+              <Button className="mt-4" size="sm" variant="outline" onClick={() => selecionarFiltro("todos")}>
+                Mostrar todos
               </Button>
             </div>
           )}
-          {etapasFiltradas.map(({ etapa, situacao, liberada, atrasada, pendentes }) => {
-            const servicosDaEtapa = servicosDoSubtree(etapa.id, etapas, servicos);
+          {etapasFiltradas.map(({ etapa, situacao, liberada, atrasada, pendentes, servicosDaEtapa }) => {
             return (
               <Link key={etapa.id} href={`/gestao/${obraId}/etapa/${etapa.id}`}>
                 <Card
@@ -264,15 +280,20 @@ export default function PainelGestorPage() {
                         <div className="flex flex-wrap gap-1.5 pt-0.5">
                           {servicosDaEtapa.map((servico) => {
                             const concluida = !!servico.concluidoEm;
-                            const status = getStatusServico(servico.id).status;
-                            const servicoLiberado = !concluida && status === "liberado";
+                            const statusOperacional = statusPorServicoId.get(servico.id);
+                            const status = statusOperacional?.status ?? "nao_iniciado";
+                            const situacaoServico = statusOperacional?.situacao ?? "nao_iniciado";
+                            const servicoLiberado = situacaoServico === "liberado";
+                            const servicoEmAndamento = situacaoServico === "em_andamento";
                             return (
                               <span
                                 key={servico.id}
                                 className={cn(
                                   "inline-flex items-center gap-1.5 rounded-full border bg-background px-2 py-0.5 text-xs text-muted-foreground",
                                   servicoLiberado &&
-                                    "border-primary/40 bg-primary-tint text-primary-tint-foreground shadow-sm"
+                                    "border-primary/50 bg-primary-tint text-primary-tint-foreground shadow-sm",
+                                  servicoEmAndamento &&
+                                    "border-destructive-tint-border bg-destructive-tint text-destructive-tint-foreground"
                                 )}
                               >
                                 <span
@@ -285,11 +306,20 @@ export default function PainelGestorPage() {
                                   )}
                                 />
                                 {servico.nome}
-                                {servicoLiberado && (
-                                  <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary-foreground">
-                                    Liberado
-                                  </span>
-                                )}
+                                <span
+                                  className={cn(
+                                    "text-[10px] font-semibold uppercase tracking-wide",
+                                    servicoLiberado &&
+                                      "rounded-full bg-primary px-1.5 py-0.5 text-primary-foreground",
+                                    situacaoServico === "nao_iniciado" && "text-muted-foreground",
+                                    situacaoServico === "concluido" && "text-foreground"
+                                  )}
+                                >
+                                  {situacaoServico === "liberado" && "Liberado"}
+                                  {situacaoServico === "em_andamento" && "Em andamento"}
+                                  {situacaoServico === "nao_iniciado" && "Não iniciado"}
+                                  {situacaoServico === "concluido" && "Concluído"}
+                                </span>
                               </span>
                             );
                           })}
