@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
-import { AlertTriangle, CheckCircle2, ChevronRight, Clock, ListFilter } from "lucide-react";
+import { AlertTriangle, ChevronRight, Clock, ListFilter } from "lucide-react";
 import { useFullKitStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -23,35 +23,32 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const CORES_SITUACAO: Record<SituacaoEtapa, string> = {
-  nao_iniciada: "bg-muted-foreground/40",
-  em_andamento: "bg-primary/40",
-  nao_liberada: "bg-destructive",
-  liberada: "bg-primary/70",
-  concluida: "bg-primary",
-};
+type FaseEtapa = "nao_iniciada" | "em_andamento" | "concluida";
+type FiltroFase = "todas" | FaseEtapa;
 
-const ROTULOS_SITUACAO: Record<SituacaoEtapa, (total: number) => string> = {
-  nao_iniciada: (n) => (n === 1 ? "não iniciada" : "não iniciadas"),
+const ROTULOS_FASE: Record<FaseEtapa, (total: number) => string> = {
   em_andamento: () => "em andamento",
-  nao_liberada: (n) => (n === 1 ? "não liberada" : "não liberadas"),
-  liberada: (n) => (n === 1 ? "liberada" : "liberadas"),
+  nao_iniciada: (n) => (n === 1 ? "não iniciada" : "não iniciadas"),
   concluida: (n) => (n === 1 ? "concluída" : "concluídas"),
 };
 
-type FiltroSituacao = "todas" | SituacaoEtapa;
+const CORES_FASE: Record<FaseEtapa, string> = {
+  em_andamento: "bg-primary/60",
+  nao_iniciada: "bg-muted-foreground/40",
+  concluida: "bg-foreground",
+};
 
-const ORDEM_FILTROS: SituacaoEtapa[] = [
-  "liberada",
-  "em_andamento",
-  "nao_iniciada",
-  "nao_liberada",
-  "concluida",
-];
+const ORDEM_FILTROS: FaseEtapa[] = ["em_andamento", "nao_iniciada", "concluida"];
+
+function faseDaEtapa(situacao: SituacaoEtapa): FaseEtapa {
+  if (situacao === "nao_iniciada") return "nao_iniciada";
+  if (situacao === "concluida") return "concluida";
+  return "em_andamento";
+}
 
 export default function PainelGestorPage() {
   const { obraId } = useParams<{ obraId: string }>();
-  const [filtroSituacao, setFiltroSituacao] = useState<FiltroSituacao>("todas");
+  const [filtroFase, setFiltroFase] = useState<FiltroFase>("todas");
   const obra = useFullKitStore((s) => s.obras.find((o) => o.id === obraId));
   const etapas = useFullKitStore(useShallow((s) => s.etapas.filter((e) => e.obraId === obraId)));
   const servicos = useFullKitStore((s) => s.servicos);
@@ -80,31 +77,27 @@ export default function PainelGestorPage() {
     // `liberada` aqui é só o gate de planejamento (predecessoras concluídas);
     // a situação mostrada ao gestor vem do Full Kit dos serviços.
     const liberada = etapaLiberada(etapa, progressoPorEtapaId);
-    const situacao = situacaoEtapa(progresso);
+    const fase = faseDaEtapa(situacaoEtapa(progresso));
     const atrasada = etapaAtrasada(janela, progresso);
     const pendentes = predecessorasPendentes(etapa, etapas, progressoPorEtapaId);
-    return { etapa, progresso, janela, liberada, situacao, atrasada, pendentes };
+    const servicosDaEtapa = servicosDoSubtree(etapa.id, etapas, servicos);
+    return { etapa, progresso, janela, liberada, fase, atrasada, pendentes, servicosDaEtapa };
   });
 
-  const contagem = (situacao: SituacaoEtapa) =>
-    etapasComStatus.filter((e) => e.situacao === situacao).length;
-  const resumo: { situacao: SituacaoEtapa; total: number }[] = ORDEM_FILTROS
-    .map((situacao) => ({ situacao, total: contagem(situacao) }))
-    .filter((item) => item.total > 0 || item.situacao === "liberada" || item.situacao === "em_andamento");
+  const contagem = (fase: FaseEtapa) => etapasComStatus.filter((item) => item.fase === fase).length;
+  const resumo = ORDEM_FILTROS.map((fase) => ({ fase, total: contagem(fase) }));
   const nBloqueadas = etapasComStatus.filter((e) => !e.liberada).length;
   const totalPendencias = etapasComStatus.reduce((acc, e) => acc + e.progresso.pendencias, 0);
 
   const etapasFiltradas =
-    filtroSituacao === "todas"
-      ? etapasComStatus
-      : etapasComStatus.filter((item) => item.situacao === filtroSituacao);
+    filtroFase === "todas" ? etapasComStatus : etapasComStatus.filter((item) => item.fase === filtroFase);
   const idsEtapasFiltradas = new Set(etapasFiltradas.map((item) => item.etapa.id));
   const gargalos = etapasComStatus.filter(
-    (e) => idsEtapasFiltradas.has(e.etapa.id) && (e.atrasada || e.progresso.pendencias > 0)
+    (item) => idsEtapasFiltradas.has(item.etapa.id) && (item.atrasada || item.progresso.pendencias > 0)
   );
 
-  function selecionarFiltro(filtro: FiltroSituacao) {
-    setFiltroSituacao((atual) => (atual === filtro && filtro !== "todas" ? "todas" : filtro));
+  function selecionarFiltro(filtro: FiltroFase) {
+    setFiltroFase((atual) => (atual === filtro && filtro !== "todas" ? "todas" : filtro));
   }
 
   return (
@@ -130,43 +123,33 @@ export default function PainelGestorPage() {
           type="button"
           variant="outline"
           size="sm"
-          aria-pressed={filtroSituacao === "todas"}
+          aria-pressed={filtroFase === "todas"}
           onClick={() => selecionarFiltro("todas")}
           className={cn(
             "h-auto rounded-full px-3 py-1.5",
-            filtroSituacao === "todas" && "border-foreground bg-foreground text-background hover:bg-foreground/90"
+            filtroFase === "todas" && "border-foreground bg-foreground text-background hover:bg-foreground/90"
           )}
         >
           <ListFilter data-icon="inline-start" />
           Todas
           <span className="tabular-nums opacity-70">{etapasComStatus.length}</span>
         </Button>
-        {resumo.map(({ situacao, total }) => (
+        {resumo.map(({ fase, total }) => (
           <Button
-            key={situacao}
+            key={fase}
             type="button"
             variant="outline"
             size="sm"
-            aria-pressed={filtroSituacao === situacao}
-            onClick={() => selecionarFiltro(situacao)}
+            aria-pressed={filtroFase === fase}
+            onClick={() => selecionarFiltro(fase)}
             className={cn(
               "h-auto rounded-full px-3 py-1.5",
-              situacao === "liberada" &&
-                "border-primary/50 bg-primary-tint text-primary-tint-foreground hover:border-primary hover:bg-primary-tint",
-              filtroSituacao === situacao &&
-                situacao !== "liberada" &&
-                "border-foreground bg-foreground text-background hover:bg-foreground/90",
-              filtroSituacao === "liberada" &&
-                situacao === "liberada" &&
-                "border-primary bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
+              filtroFase === fase &&
+                "border-foreground bg-foreground text-background hover:bg-foreground/90"
             )}
           >
-            {situacao === "liberada" ? (
-              <CheckCircle2 data-icon="inline-start" />
-            ) : (
-              <span className={cn("size-1.5 rounded-full", CORES_SITUACAO[situacao])} />
-            )}
-            {total} {ROTULOS_SITUACAO[situacao](total)}
+            <span className={cn("size-1.5 rounded-full", CORES_FASE[fase])} />
+            {total} {ROTULOS_FASE[fase](total)}
           </Button>
         ))}
         {nBloqueadas > 0 && (
@@ -237,21 +220,15 @@ export default function PainelGestorPage() {
               </Button>
             </div>
           )}
-          {etapasFiltradas.map(({ etapa, situacao, liberada, atrasada, pendentes }) => {
-            const servicosDaEtapa = servicosDoSubtree(etapa.id, etapas, servicos);
+          {etapasFiltradas.map(({ etapa, fase, liberada, atrasada, pendentes, servicosDaEtapa }) => {
             return (
               <Link key={etapa.id} href={`/gestao/${obraId}/etapa/${etapa.id}`}>
-                <Card
-                  className={cn(
-                    "cursor-pointer transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md",
-                    situacao === "liberada" && "border-primary/50 bg-primary-tint/30 shadow-sm"
-                  )}
-                >
+                <Card className="cursor-pointer transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md">
                   <CardHeader className="flex-row items-center gap-3 space-y-0">
                     <div className="flex-1 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <CardTitle className="text-base">{etapa.nome}</CardTitle>
-                        <SituacaoEtapaBadge situacao={situacao} />
+                        <SituacaoEtapaBadge situacao={fase} />
                         {!liberada && <Badge variant="secondary">Bloqueada</Badge>}
                         {atrasada && <Badge variant="destructive">Atrasada</Badge>}
                       </div>
